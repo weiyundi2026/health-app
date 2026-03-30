@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>健康助手 Pro</title>
+<!-- PWA 支持 -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="健康助手">
+<meta name="theme-color" content="#667eea">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ===== 启动页 ===== -->
+  <div class="splash" id="splash">
+    <div class="splash-logo">💪</div>
+    <div class="splash-title">健康助手 Pro</div>
+    <div class="splash-sub">你的私人健康管家</div>
+    <div class="splash-loader"><div class="splash-bar"></div></div>
+  </div>
+
+  <!-- ===== 主界面 ===== -->
+  <div class="main" id="main" style="display:none">
+
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <span id="statusDate"></span>
+      <span class="status-score">今日评分 <b id="todayScore">--</b></span>
+    </div>
+
+    <!-- 页面容器 -->
+    <div class="pages">
+
+      <!-- 首页 -->
+      <div class="page active" id="page-home">
+        <div class="page-scroll">
+          <!-- 用户问候 -->
+          <div class="greeting-card">
+            <div class="greeting-left">
+              <div class="greeting-title" id="greetingTitle">早上好 👋</div>
+              <div class="greeting-sub">今天也要好好照顾自己哦</div>
+            </div>
+            <div class="greeting-avatar">🧑</div>
+          </div>
+
+          <!-- 今日概览卡片 -->
+          <div class="section-title">今日健康概览</div>
+          <div class="overview-grid" id="overviewGrid"></div>
+
+          <!-- 快捷入口 -->
+          <div class="section-title">快捷功能</div>
+          <div class="quick-grid">
+            <div class="quick-item" onclick="goPage('camera')">
+              <div class="quick-icon">🤖</div>
+              <div class="quick-label">AI 检测</div>
+            </div>
+            <div class="quick-item" onclick="openRecord('weight')">
+              <div class="quick-icon">⚖️</div>
+              <div class="quick-label">记录体重</div>
+            </div>
+            <div class="quick-item" onclick="quickWater()">
+              <div class="quick-icon">💧</div>
+              <div class="quick-label">喝水 +250ml</div>
+            </div>
+            <div class="quick-item" onclick="openRecord('exercise')">
+              <div class="quick-icon">🏃</div>
+              <div class="quick-label">记录运动</div>
+            </div>
+            <div class="quick-item" onclick="openRecord('sleep')">
+              <div class="quick-icon">😴</div>
+              <div class="quick-label">记录睡眠</div>
+            </div>
+            <div class="quick-item" onclick="openRecord('diet')">
+              <div class="quick-icon">🍎</div>
+              <div class="quick-label">记录饮食</div>
+            </div>
+          </div>
+
+          <!-- AI 检测入口 Banner -->
+          <div class="ai-banner" onclick="goPage('camera')">
+            <div class="ai-banner-text">
+              <div class="ai-banner-title">AI 健康拍照检测</div>
+              <div class="ai-banner-sub">面色分析 · 舌诊 · 心率 · 皮肤</div>
+            </div>
+            <div class="ai-banner-icon">📷✨</div>
+          </div>
+
+          <!-- 近期记录 -->
+          <div class="section-title">近期动态</div>
+          <div id="recentList" class="recent-list"></div>
+
+          <div style="height:20px"></div>
+        </div>
+      </div>
+
+      <!-- AI 拍照检测页 -->
+      <div class="page" id="page-camera">
+        <div class="page-header">
+          <span class="back-btn" onclick="goPage('home')">←</span>
+          <span class="page-title">AI 健康检测</span>
+          <span></span>
+        </div>
+
+        <!-- 模式选择 -->
+        <div class="mode-bar">
+          <button class="mode-btn active" data-mode="face" onclick="setMode(this,'face')">😊 面色</button>
+          <button class="mode-btn" data-mode="tongue" onclick="setMode(this,'tongue')">👅 舌诊</button>
+          <button class="mode-btn" data-mode="heartrate" onclick="setMode(this,'heartrate')">❤️ 心率</button>
+          <button class="mode-btn" data-mode="skin" onclick="setMode(this,'skin')">🔍 皮肤</button>
+        </div>
+
+        <!-- 摄像头 -->
+        <div class="cam-box">
+          <video id="camVideo" autoplay playsinline muted></video>
+          <canvas id="camCanvas"></canvas>
+          <div class="cam-frame" id="camFrame"></div>
+          <div class="cam-scan" id="camScan"></div>
+          <div class="cam-live">● LIVE</div>
+          <button class="cam-flip" onclick="flipCam()">🔄</button>
+        </div>
+
+        <!-- 心率数值 -->
+        <div class="hr-panel" id="hrPanel">
+          <div class="hr-num" id="hrNum">--</div>
+          <div class="hr-unit">次/分钟 ❤️</div>
+        </div>
+
+        <!-- 控制 -->
+        <div class="cam-ctrl">
+          <button class="shoot-btn" id="shootBtn" onclick="shoot()">📸</button>
+          <button class="hr-start-btn" id="hrStartBtn" onclick="toggleHR()" style="display:none">开始测量</button>
+        </div>
+        <div class="cam-hint" id="camHint">对准面部，点击拍照分析</div>
+      </div>
+
+      <!-- 检测结果页 -->
+      <div class="page" id="page-result">
+        <div class="page-header">
+          <span class="back-btn" onclick="goPage('camera')">←</span>
+          <span class="page-title" id="resultPageTitle">检测结果</span>
+          <span></span>
+        </div>
+        <div class="page-scroll">
+          <!-- 评分环 -->
+          <div class="score-wrap">
+            <svg viewBox="0 0 120 120" width="120" height="120" class="score-ring">
+              <defs>
+                <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#6c63ff"/>
+                  <stop offset="100%" stop-color="#48cfad"/>
+                </linearGradient>
+              </defs>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10"/>
+              <circle id="ringArc" cx="60" cy="60" r="50" fill="none" stroke="url(#rg)"
+                stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="314.16" stroke-dashoffset="314.16"
+                transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="score-center">
+              <div class="score-big" id="scoreBig">0</div>
+              <div class="score-lbl">健康评分</div>
+            </div>
+          </div>
+          <div class="score-desc" id="scoreDesc"></div>
+
+          <!-- 指标 -->
+          <div class="result-card">
+            <div class="card-title" id="indicatorTitle">📊 详细指标</div>
+            <div id="indicatorBars"></div>
+          </div>
+
+          <!-- 分析图 -->
+          <div class="result-card" id="analysePhotoCard" style="display:none">
+            <div class="card-title">📷 分析图像</div>
+            <img id="analysePhoto" style="width:100%;border-radius:10px;margin-top:8px" alt="">
+          </div>
+
+          <!-- 建议 -->
+          <div class="result-card">
+            <div class="card-title">💡 健康建议</div>
+            <div id="suggestionList"></div>
+          </div>
+
+          <div style="padding:16px 0 30px;text-align:center">
+            <button class="save-btn" onclick="saveAnalysis()">💾 保存记录</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 数据记录页 -->
+      <div class="page" id="page-record">
+        <div class="page-header">
+          <span class="back-btn" onclick="goPage('home')">←</span>
+          <span class="page-title">健康数据</span>
+          <span></span>
+        </div>
+        <div class="record-tabs">
+          <button class="rtab active" onclick="switchRTab(this,'weight')">⚖️ 体重</button>
+          <button class="rtab" onclick="switchRTab(this,'exercise')">🏃 运动</button>
+          <button class="rtab" onclick="switchRTab(this,'water')">💧 喝水</button>
+          <button class="rtab" onclick="switchRTab(this,'sleep')">😴 睡眠</button>
+          <button class="rtab" onclick="switchRTab(this,'diet')">🍎 饮食</button>
+        </div>
+        <div class="page-scroll" style="flex:1">
+          <!-- 体重 -->
+          <div class="rtab-content active" id="rt-weight">
+            <div class="form-card">
+              <div class="form-row">
+                <div class="form-group"><label>体重 (kg)</label><input type="number" id="f-weight" placeholder="如：65.5" step="0.1"></div>
+                <div class="form-group"><label>身高 (cm)</label><input type="number" id="f-height" placeholder="如：170"></div>
+              </div>
+              <button class="add-btn" onclick="addRecord('weight')">+ 记录体重</button>
+            </div>
+            <div class="data-list" id="list-weight"></div>
+          </div>
+          <!-- 运动 -->
+          <div class="rtab-content" id="rt-exercise">
+            <div class="form-card">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>运动类型</label>
+                  <select id="f-extype">
+                    <option>🏃 跑步</option><option>🚴 骑车</option><option>🏊 游泳</option>
+                    <option>🏋️ 健身</option><option>🧘 瑜伽</option><option>🚶 散步</option><option>⚽ 球类</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>时长(分钟)</label><input type="number" id="f-exdur" placeholder="30"></div>
+              </div>
+              <div class="form-group"><label>消耗热量(卡)</label><input type="number" id="f-excal" placeholder="200"></div>
+              <button class="add-btn" onclick="addRecord('exercise')">+ 记录运动</button>
+            </div>
+            <div class="data-list" id="list-exercise"></div>
+          </div>
+          <!-- 喝水 -->
+          <div class="rtab-content" id="rt-water">
+            <div class="form-card">
+              <div class="form-group"><label>喝水量 (ml)</label><input type="number" id="f-water" placeholder="250"></div>
+              <div class="quick-water">
+                <button onclick="quickAddWater(150)">+150ml</button>
+                <button onclick="quickAddWater(250)">+250ml</button>
+                <button onclick="quickAddWater(500)">+500ml</button>
+                <button onclick="quickAddWater(1000)">+1L</button>
+              </div>
+              <button class="add-btn" onclick="addRecord('water')">+ 记录喝水</button>
+            </div>
+            <div class="water-today">
+              今日已喝：<span id="waterToday">0</span> ml
+              <div class="water-bar-track"><div class="water-bar-fill" id="waterBarFill"></div></div>
+              <div style="font-size:11px;color:#666;margin-top:4px">目标：2000ml</div>
+            </div>
+            <div class="data-list" id="list-water"></div>
+          </div>
+          <!-- 睡眠 -->
+          <div class="rtab-content" id="rt-sleep">
+            <div class="form-card">
+              <div class="form-row">
+                <div class="form-group"><label>睡眠时长(小时)</label><input type="number" id="f-sleep" placeholder="7.5" step="0.5"></div>
+                <div class="form-group">
+                  <label>睡眠质量</label>
+                  <select id="f-sleepq">
+                    <option>很差😵</option><option>差😐</option><option>中等😊</option><option>好😄</option><option>极好🌟</option>
+                  </select>
+                </div>
+              </div>
+              <button class="add-btn" onclick="addRecord('sleep')">+ 记录睡眠</button>
+            </div>
+            <div class="data-list" id="list-sleep"></div>
+          </div>
+          <!-- 饮食 -->
+          <div class="rtab-content" id="rt-diet">
+            <div class="form-card">
+              <div class="form-row">
+                <div class="form-group"><label>食物名称</label><input type="text" id="f-food" placeholder="红烧肉"></div>
+                <div class="form-group"><label>热量(卡)</label><input type="number" id="f-fcal" placeholder="350"></div>
+              </div>
+              <div class="form-group">
+                <label>用餐时间</label>
+                <select id="f-meal">
+                  <option>🌅 早餐</option><option>☀️ 午餐</option><option>🌙 晚餐</option><option>🍿 零食</option>
+                </select>
+              </div>
+              <button class="add-btn" onclick="addRecord('diet')">+ 记录饮食</button>
+            </div>
+            <div class="data-list" id="list-diet"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 统计页 -->
+      <div class="page" id="page-stats">
+        <div class="page-header">
+          <span></span>
+          <span class="page-title">数据统计</span>
+          <span></span>
+        </div>
+        <div class="page-scroll">
+          <div class="stats-card">
+            <div class="card-title">📈 近7天体重趋势</div>
+            <div class="chart-box"><canvas id="chartWeight"></canvas></div>
+          </div>
+          <div class="stats-card">
+            <div class="card-title">💧 近7天饮水量</div>
+            <div class="chart-box"><canvas id="chartWater"></canvas></div>
+          </div>
+          <div class="stats-card">
+            <div class="card-title">🏃 近7天运动分钟</div>
+            <div class="chart-box"><canvas id="chartExercise"></canvas></div>
+          </div>
+          <div class="stats-card">
+            <div class="card-title">😴 近7天睡眠时长</div>
+            <div class="chart-box"><canvas id="chartSleep"></canvas></div>
+          </div>
+          <div style="height:20px"></div>
+        </div>
+      </div>
+
+    </div><!-- /pages -->
+
+    <!-- 底部导航 -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" onclick="goPage('home')">
+        <span class="nav-ico">🏠</span><span class="nav-lbl">首页</span>
+      </button>
+      <button class="nav-item" onclick="goPage('camera')">
+        <span class="nav-ico">📷</span><span class="nav-lbl">AI检测</span>
+      </button>
+      <button class="nav-item" onclick="goPage('record')">
+        <span class="nav-ico">📝</span><span class="nav-lbl">记录</span>
+      </button>
+      <button class="nav-item" onclick="goPage('stats')">
+        <span class="nav-ico">📊</span><span class="nav-lbl">统计</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- 弹窗遮罩 -->
+  <div class="overlay" id="overlay" onclick="closeOverlay()"></div>
+  <!-- 提示弹窗 -->
+  <div class="toast" id="toast"></div>
+  <!-- 加载层 -->
+  <div class="ai-loading" id="aiLoading">
+    <div class="ai-spin"></div>
+    <div class="ai-loading-text" id="aiLoadingText">AI 分析中...</div>
+    <div class="ai-loading-sub">请稍候</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
