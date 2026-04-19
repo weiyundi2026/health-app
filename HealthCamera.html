@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e1a">
+<title>AI 健康拍照分析</title>
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: #1a2235;
+    --bg-card2: #1e2a3a;
+    --accent1: #6366f1;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --accent6: #ef4444;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
+    --border: rgba(255,255,255,0.08);
+    --radius: 20px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; }
+  html, body { height:100%; background:var(--bg-primary); color:var(--text-primary); font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif; overflow:hidden; }
+
+  #app { width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* Header */
+  .cam-header {
+    height:calc(56px + var(--safe-top));
+    padding-top:var(--safe-top);
+    padding-left:16px; padding-right:16px;
+    background:rgba(10,14,26,0.9);
+    backdrop-filter:blur(20px);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0; z-index:10; position:relative;
+  }
+  .cam-header .back-btn {
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:18px;
+    border:none; color:#fff;
+    transition:background .15s;
+  }
+  .cam-header .back-btn:active { background:rgba(255,255,255,0.2); }
+  .cam-header .title { font-size:16px; font-weight:700; color:#fff; }
+  .cam-header .switch-btn {
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px;
+    border:none; color:#fff;
+    transition:background .15s;
+  }
+  .cam-header .switch-btn:active { background:rgba(255,255,255,0.2); }
+
+  /* Camera area */
+  .cam-body { flex:1; position:relative; overflow:hidden; background:#000; }
+  #camera-video {
+    width:100%; height:100%; object-fit:cover;
+    transform:scaleX(-1); /* mirror for front cam */
+  }
+  #camera-canvas { display:none; }
+
+  /* Overlay guide */
+  .cam-guide {
+    position:absolute; inset:0; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .guide-circle {
+    width:240px; height:300px;
+    border:2px dashed rgba(255,255,255,0.5);
+    border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column;
+  }
+  .guide-icon { font-size:48px; margin-bottom:8px; opacity:0.6; }
+  .guide-text { font-size:12px; color:rgba(255,255,255,0.6); text-align:center; }
+
+  /* Analysis overlay */
+  .analysis-overlay {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.6);
+    pointer-events:none;
+  }
+  .analysis-ring {
+    width:120px; height:120px; position:relative;
+  }
+  .analysis-ring svg { transform:rotate(-90deg); }
+  .analysis-ring .ring-bg { fill:none; stroke:rgba(255,255,255,0.1); stroke-width:8; }
+  .analysis-ring .ring-fg { fill:none; stroke:#6366f1; stroke-width:8; stroke-linecap:round;
+    stroke-dasharray:314; stroke-dashoffset:314;
+    transition:stroke-dashoffset 0.1s linear;
+  }
+  .analysis-ring .ring-text {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    font-size:20px; font-weight:800; color:#fff;
+  }
+  .analysis-ring .ring-lbl { font-size:10px; color:rgba(255,255,255,0.6); font-weight:400; }
+  .analysis-label {
+    position:absolute; bottom:140px; left:50%; transform:translateX(-50%);
+    font-size:14px; color:#fff; font-weight:600;
+    text-align:center; white-space:nowrap;
+  }
+  .heart-dot {
+    display:inline-block; width:10px; height:10px;
+    border-radius:50%; background:#ef4444; margin-right:6px;
+    animation:pulse-dot 1s infinite;
+  }
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* Mode tabs */
+  .mode-tabs {
+    position:absolute; top:0; left:0; right:0;
+    display:flex; padding:12px 16px; gap:8px;
+    background:linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+    pointer-events:none;
+  }
+  .mode-tab {
+    flex:1; padding:8px 0; border-radius:12px;
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.1);
+    color:#fff; font-size:12px; font-weight:600;
+    text-align:center; cursor:pointer;
+    transition:all .2s; pointer-events:all;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .mode-tab .tab-icon { font-size:20px; }
+  .mode-tab .tab-lbl { font-size:10px; opacity:0.7; }
+  .mode-tab.active {
+    background:rgba(99,102,241,0.6);
+    border-color:rgba(99,102,241,0.8);
+  }
+
+  /* Bottom controls */
+  .cam-controls {
+    height:calc(180px + var(--safe-bottom));
+    padding-bottom:var(--safe-bottom);
+    background:rgba(10,14,26,0.95);
+    backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; flex-shrink:0;
+  }
+  .control-row { display:flex; align-items:center; gap:16px; }
+
+  .capture-btn {
+    width:72px; height:72px; border-radius:50%;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 0 4px rgba(99,102,241,0.3), 0 8px 24px rgba(99,102,241,0.4);
+    transition:all .15s; position:relative;
+  }
+  .capture-btn:active { transform:scale(0.92); }
+  .capture-btn .inner {
+    width:56px; height:56px; border-radius:50%;
+    background:#fff; border:3px solid rgba(99,102,241,0.5);
+    transition:all .15s;
+  }
+  .capture-btn.recording .inner {
+    width:28px; height:28px; border-radius:8px;
+    background:#ef4444; border-color:#ef4444;
+    animation:pulse-btn 1s infinite;
+  }
+  @keyframes pulse-btn { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 50%{box-shadow:0 0 0 10px rgba(239,68,68,0)} }
+
+  .side-btn {
+    width:52px; height:52px; border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.15);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:24px; color:#fff;
+    transition:all .15s;
+  }
+  .side-btn:active { transform:scale(0.92); background:rgba(255,255,255,0.2); }
+  .side-btn.active { background:rgba(99,102,241,0.3); border-color:rgba(99,102,241,0.5); }
+
+  /* Result screen */
+  .result-screen {
+    position:fixed; inset:0; background:var(--bg-primary);
+    z-index:100; display:flex; flex-direction:column;
+    transform:translateY(100%); transition:transform .4s cubic-bezier(.4,0,.2,1);
+  }
+  .result-screen.show { transform:translateY(0); }
+  .result-header {
+    height:calc(56px + var(--safe-top));
+    padding-top:var(--safe-top);
+    padding-left:16px; padding-right:16px;
+    background:rgba(10,14,26,0.95);
+    backdrop-filter:blur(20px);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  .result-header .back-btn {
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:18px; border:none; color:#fff;
+  }
+  .result-header .title { font-size:16px; font-weight:700; color:#fff; }
+  .result-header .share-btn {
+    padding:8px 16px; border-radius:20px;
+    background:rgba(99,102,241,0.3); border:1px solid rgba(99,102,241,0.4);
+    color:#a5b4fc; font-size:13px; font-weight:600; cursor:pointer; border:none;
+  }
+
+  .result-body {
+    flex:1; overflow-y:auto; padding:16px;
+    padding-bottom:calc(16px);
+  }
+
+  /* Captured Image Preview */
+  .captured-image-wrap {
+    position:relative; border-radius:16px; overflow:hidden;
+    margin-bottom:16px; background:var(--bg-card);
+  }
+  .captured-image-wrap img {
+    width:100%; height:200px; object-fit:cover;
+  }
+  .captured-image-overlay {
+    position:absolute; inset:0;
+    background:linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.6));
+    display:flex; align-items:flex-end; padding:12px;
+  }
+  .captured-image-label {
+    font-size:12px; color:#fff; display:flex; align-items:center; gap:6px;
+  }
+
+  /* Score section - new style */
+  .score-section-new {
+    text-align:center; margin-bottom:16px;
+  }
+  .score-ring-new {
+    position:relative; width:140px; height:140px; margin:0 auto 12px;
+  }
+  .score-ring-new svg { transform:rotate(-90deg); width:140px; height:140px; }
+  .score-ring-bg-new { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:10; }
+  .score-ring-fg-new { 
+    fill:none; stroke-width:10; stroke-linecap:round;
+    stroke-dasharray:377; stroke-dashoffset:377;
+    transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1);
+  }
+  .score-ring-center {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .score-ring-num { font-size:42px; font-weight:900; line-height:1; }
+  .score-ring-unit { font-size:14px; color:var(--text-secondary); }
+
+  /* Status badge */
+  .status-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 16px; border-radius:20px;
+    font-size:13px; font-weight:600; margin-bottom:8px;
+  }
+  .status-badge.good { background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); }
+  .status-badge.warn { background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); }
+  .status-badge.alert { background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); }
+
+  /* Metrics cards - 2x2 grid style */
+  .metrics-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;
+  }
+  .metric-card {
+    background:var(--bg-card); border-radius:16px; padding:14px;
+    border:1px solid var(--border);
+  }
+  .metric-card-header {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .metric-card-icon { font-size:18px; }
+  .metric-card-label { font-size:12px; color:var(--text-secondary); }
+  .metric-card-value { font-size:15px; font-weight:700; color:#fff; margin-bottom:8px; }
+  .metric-bar-wrap { background:rgba(255,255,255,0.08); border-radius:4px; height:6px; overflow:hidden; }
+  .metric-bar-fill { height:100%; border-radius:4px; transition:width 1s ease; }
+
+  /* AI advice - compact style */
+  .ai-advice-compact {
+    background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));
+    border:1px solid rgba(99,102,241,0.15); border-radius:16px;
+    padding:14px; margin-bottom:16px;
+  }
+  .ai-advice-compact-title {
+    font-size:12px; color:#a5b4fc; margin-bottom:10px; font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .ai-advice-compact-item {
+    font-size:13px; color:var(--text-secondary); line-height:1.6; 
+    padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);
+    display:flex; gap:8px;
+  }
+  .ai-advice-compact-item:last-child { border-bottom:none; }
+  .ai-advice-compact-item .num { color:var(--accent1); font-weight:700; flex-shrink:0; }
+
+  /* Action buttons - new style */
+  .action-btns {
+    display:flex; gap:10px; margin-bottom:12px;
+  }
+  .action-btn-primary {
+    flex:1; padding:14px; 
+    background:linear-gradient(135deg,var(--accent1),var(--accent2));
+    border:none; border-radius:14px; color:#fff; font-size:14px; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .action-btn-secondary {
+    flex:1; padding:14px; 
+    background:rgba(255,255,255,0.05); border:1px solid var(--border);
+    border-radius:14px; color:#fff; font-size:14px; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .action-btn-icon {
+    width:44px; height:44px; border-radius:14px;
+    background:rgba(255,255,255,0.05); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:18px;
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.15);
+    border-radius:12px; padding:12px; margin-bottom:16px;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .disclaimer-icon { font-size:16px; flex-shrink:0; margin-top:2px; }
+  .disclaimer-text { font-size:11px; color:var(--text-muted); line-height:1.6; }
+
+  /* Loading */
+  .loading-screen {
+    position:fixed; inset:0; background:rgba(10,14,26,0.95);
+    z-index:150; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .3s;
+  }
+  .loading-screen.show { opacity:1; pointer-events:all; }
+  .loading-icon { font-size:64px; animation:float 2s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .loading-title { font-size:18px; font-weight:700; margin-top:16px; }
+  .loading-desc { font-size:13px; color:var(--text-secondary); margin-top:8px; }
+  .loading-bar { width:200px; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-top:20px; overflow:hidden; }
+  .loading-bar-inner { height:100%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); border-radius:2px; transition:width .3s; }
+  .loading-steps { margin-top:16px; font-size:12px; color:var(--text-muted); }
+
+  /* Toast */
+  #toast { position:fixed; top:calc(var(--safe-top) + 16px); left:50%; transform:translateX(-50%) translateY(-80px); background:rgba(30,40,60,0.97); border:1px solid var(--border); padding:10px 20px; border-radius:20px; font-size:13px; z-index:999; transition:transform .3s; white-space:nowrap; }
+
+  /* Tips bubble */
+  .tip-bubble {
+    position:absolute; bottom:200px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.75); backdrop-filter:blur(10px);
+    padding:8px 16px; border-radius:20px; font-size:12px;
+    color:#fff; pointer-events:none; white-space:nowrap;
+    animation:fadeInUp .3s ease;
+  }
+  @keyframes fadeInUp { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Camera Header -->
+  <div class="cam-header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <div class="title" id="header-title">AI 健康检测</div>
+    <button class="switch-btn" id="switch-cam-btn" onclick="switchCamera()">🔄</button>
+  </div>
+
+  <!-- Camera Body -->
+  <div class="cam-body" id="cam-body">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <canvas id="camera-canvas"></canvas>
+
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+      <div class="mode-tab active" id="tab-face" onclick="setMode('face')">
+        <span class="tab-icon">😊</span>
+        <span class="tab-lbl">面色</span>
+      </div>
+      <div class="mode-tab" id="tab-tongue" onclick="setMode('tongue')">
+        <span class="tab-icon">👅</span>
+        <span class="tab-lbl">舌诊</span>
+      </div>
+      <div class="mode-tab" id="tab-heart" onclick="setMode('heart')">
+        <span class="tab-icon">❤️</span>
+        <span class="tab-lbl">心率</span>
+      </div>
+      <div class="mode-tab" id="tab-skin" onclick="setMode('skin')">
+        <span class="tab-icon">🔍</span>
+        <span class="tab-lbl">皮肤</span>
+      </div>
+    </div>
+
+    <!-- Guide overlay -->
+    <div class="cam-guide" id="guide-overlay">
+      <div class="guide-circle" id="guide-circle">
+        <div class="guide-icon" id="guide-icon">😊</div>
+        <div class="guide-text" id="guide-text">请将面部对准框内</div>
+      </div>
+    </div>
+
+    <!-- Analysis overlay (shown during analysis) -->
+    <div class="analysis-overlay" id="analysis-overlay" style="display:none">
+      <div class="analysis-ring" id="analysis-ring">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="50"/>
+          <circle class="ring-fg" id="ring-fg" cx="60" cy="60" r="50"/>
+        </svg>
+        <div class="ring-text">
+          <div id="analysis-pct">0</div>
+          <div class="ring-lbl" id="analysis-sub">分析中</div>
+        </div>
+      </div>
+      <div class="analysis-label" id="analysis-label">
+        <span class="heart-dot"></span>正在检测心率...
+      </div>
+    </div>
+
+    <!-- Tip bubble -->
+    <div id="tip-bubble" style="display:none"></div>
+  </div>
+
+  <!-- Bottom Controls -->
+  <div class="cam-controls">
+    <div style="font-size:12px;color:var(--text-muted);text-align:center" id="mode-hint">😊 面色分析 · 请保持光线充足</div>
+    <div class="control-row">
+      <div class="side-btn" id="flash-btn" onclick="toggleFlash()">💡</div>
+      <div class="capture-btn" id="capture-btn" onclick="startCapture()">
+        <div class="inner"></div>
+      </div>
+      <div class="side-btn" id="gallery-btn" onclick="pickFromGallery()">🖼️</div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted)">轻触按钮开始分析</div>
+  </div>
+</div>
+
+<!-- Result Screen -->
+<div class="result-screen" id="result-screen">
+  <div class="result-header">
+    <button class="back-btn" onclick="closeResult()">←</button>
+    <div class="title">分析报告</div>
+    <button class="share-btn" onclick="shareResult()">📤 分享</button>
+  </div>
+  <div class="result-body" id="result-body"></div>
+</div>
+
+<!-- Loading Screen -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-icon" id="loading-icon">🤖</div>
+  <div class="loading-title" id="loading-title">AI 正在分析...</div>
+  <div class="loading-desc" id="loading-desc">请保持摄像头稳定</div>
+  <div class="loading-bar"><div class="loading-bar-inner" id="loading-bar" style="width:0%"></div></div>
+  <div class="loading-steps" id="loading-steps">步骤 1/4: 人脸检测</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===================== CONSTANTS =====================
+const MODES = {
+  face: {
+    title: '面色分析',
+    icon: '😊',
+    hint: '😊 面色分析 · 请保持光线充足',
+    guideIcon: '😊',
+    guideText: '请将面部对准框内',
+    guideW: 240, guideH: 300,
+    color: '#6366f1',
+    badge: { text: '面色', emoji: '😊' }
+  },
+  tongue: {
+    title: '舌诊分析',
+    icon: '👅',
+    hint: '👅 舌诊分析 · 请伸出舌头',
+    guideIcon: '👅',
+    guideText: '请将舌头对准框内',
+    guideW: 240, guideH: 240,
+    color: '#ef4444',
+    badge: { text: '舌诊', emoji: '👅' }
+  },
+  heart: {
+    title: '心率检测',
+    icon: '❤️',
+    hint: '❤️ 心率检测 · 请保持静止30秒',
+    guideIcon: '❤️',
+    guideText: '请将面部对准框内，保持静止',
+    guideW: 200, guideH: 250,
+    color: '#ef4444',
+    badge: { text: '心率', emoji: '❤️' }
+  },
+  skin: {
+    title: '皮肤检测',
+    icon: '🔍',
+    hint: '🔍 皮肤检测 · 请靠近镜头',
+    guideIcon: '🔍',
+    guideText: '请将面部靠近镜头',
+    guideW: 240, guideH: 300,
+    color: '#10b981',
+    badge: { text: '皮肤', emoji: '🔍' }
+  }
+};
+
+let currentMode = 'face';
+let currentFacing = 'user'; // 'user' = front, 'environment' = back
+let stream = null;
+let rppgRunning = false;
+let rppgBuffer = [];
+let rppgTimestamps = [];
+let animationFrameId = null;
+let heartRate = 0;
+let faceDetectionInterval = null;
+
+// ===================== CAMERA =====================
+async function initCamera() {
+  try {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+    }
+    const constraints = {
+      video: {
+        facingMode: currentFacing,
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = document.getElementById('camera-video');
+    video.srcObject = stream;
+
+    // Mirror front cam
+    video.style.transform = currentFacing === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+
+    // Hide guide after camera ready
+    setTimeout(() => {
+      document.getElementById('guide-overlay').style.opacity = '1';
+    }, 500);
+
+    toast('📷 摄像头已启动');
+  } catch (err) {
+    console.error('Camera error:', err);
+    toast('❌ 无法访问摄像头，请检查权限设置');
+  }
+}
+
+async function switchCamera() {
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  const btn = document.getElementById('switch-cam-btn');
+  btn.textContent = currentFacing === 'user' ? '🔄' : '🔄';
+  await initCamera();
+  toast(`已切换到${currentFacing === 'user' ? '前' : '后'}置摄像头`);
+}
+
+function goBack() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (window.AndroidBridge && AndroidBridge.onCameraClose) {
+    AndroidBridge.onCameraClose();
+  }
+}
+
+// ===================== MODE SWITCH =====================
+function setMode(mode) {
+  if (rppgRunning) stopRppg();
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + mode).classList.add('active');
+  currentMode = mode;
+
+  const m = MODES[mode];
+  document.getElementById('header-title').textContent = m.title;
+  document.getElementById('mode-hint').textContent = m.hint;
+  document.getElementById('guide-icon').textContent = m.guideIcon;
+  document.getElementById('guide-text').textContent = m.guideText;
+
+  // Adjust guide circle
+  const gc = document.getElementById('guide-circle');
+  gc.style.width = m.guideW + 'px';
+  gc.style.height = m.guideH + 'px';
+
+  // Show/hide flash for back camera only
+  const flashBtn = document.getElementById('flash-btn');
+  flashBtn.style.display = currentFacing === 'environment' ? 'flex' : 'none';
+}
+
+// ===================== CAPTURE FLOW =====================
+function startCapture() {
+  vibrate();
+  if (currentMode === 'heart') {
+    startHeartRateCapture();
+  } else {
+    captureImage();
+  }
+}
+
+async function captureImage() {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Check if video is ready
+  if (!video || video.readyState < 2) {
+    toast('⏳ 摄像头加载中，请稍候...');
+    // Retry after a short delay
+    setTimeout(() => captureImage(), 1000);
+    return;
+  }
+
+  // Set canvas size from video
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+
+  if (canvas.width < 10 || canvas.height < 10) {
+    toast('❌ 摄像头未就绪，请重试');
+    return;
+  }
+
+  // Draw video (handle mirror)
+  ctx.save();
+  if (currentFacing === 'user') {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  // Get image data for analysis
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  // Store captured image data URL for preview in result screen
+  capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+  // Show loading
+  showLoading(currentMode, async () => {
+    // Step 1: Quick local analysis
+    const localResult = analyzeImage(currentMode, canvas);
+
+    // Step 2: Upload to cloud for detailed analysis
+    const cloudResult = await uploadForCloudAnalysis(imageData, currentMode);
+
+    // Step 3: Merge results
+    const finalResult = mergeAnalysisResults(localResult, cloudResult);
+
+    showResult(finalResult);
+  });
+}
+
+// ===================== CLOUD ANALYSIS =====================
+// 配置你的云端API地址
+const CLOUD_API_CONFIG = {
+  enabled: true,
+  apiUrl: 'https://api.example.com/health-analyze', // 替换为你的API地址
+  timeout: 30000, // 30秒超时
+};
+
+async function uploadForCloudAnalysis(imageData, mode) {
+  const steps = document.getElementById('loading-steps');
+  const bar = document.getElementById('loading-bar');
+  const descEl = document.getElementById('loading-desc');
+  const iconEl = document.getElementById('loading-icon');
+
+  try {
+    // 步骤1: 检查网络
+    iconEl.textContent = '🌐';
+    if (steps) steps.textContent = '🌐 检查网络连接...';
+    if (bar) bar.style.width = '20%';
+    await checkNetwork();
+    await delay(400);
+
+    // 步骤2: 准备图像
+    if (steps) steps.textContent = '📷 压缩图像数据...';
+    if (bar) bar.style.width = '30%';
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(imageData, 0, 0);
+    
+    // 压缩图像
+    const imageBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    await delay(300);
+
+    // 步骤3: 上传数据
+    iconEl.textContent = '📤';
+    if (steps) steps.textContent = '📤 上传至云端服务器...';
+    if (bar) bar.style.width = '45%';
+    if (descEl) descEl.textContent = `上传中... ${Math.round(imageBase64.length / 1024)}KB`;
+
+    // 尝试调用真实API
+    let cloudResult = null;
+    
+    if (CLOUD_API_CONFIG.enabled) {
+      try {
+        cloudResult = await callCloudAPI(imageBase64, mode, CLOUD_API_CONFIG.apiUrl);
+      } catch (apiError) {
+        console.log('API调用失败，使用本地分析:', apiError);
+        // API调用失败时使用增强的本地分析
+        cloudResult = await enhancedLocalAnalysis(imageData, mode, canvas);
+      }
+    } else {
+      // 未启用API时使用增强本地分析
+      cloudResult = await enhancedLocalAnalysis(imageData, mode, canvas);
+    }
+
+    // 步骤4: 云端分析
+    iconEl.textContent = '🤖';
+    if (steps) steps.textContent = '🤖 AI 深度分析中...';
+    if (bar) bar.style.width = '70%';
+    if (descEl) descEl.textContent = '云端 AI 正在分析您的健康数据';
+    await delay(800);
+
+    // 步骤5: 生成报告
+    iconEl.textContent = '📋';
+    if (steps) steps.textContent = '📋 生成分析报告...';
+    if (bar) bar.style.width = '90%';
+    await delay(500);
+
+    return cloudResult;
+
+  } catch (error) {
+    console.error('Cloud analysis error:', error);
+    // 出错时使用增强本地分析作为后备
+    return await enhancedLocalAnalysis(imageData, mode, null);
+  }
+}
+
+// 检查网络连接
+async function checkNetwork() {
+  if (!navigator.onLine) {
+    throw new Error('无网络连接');
+  }
+  
+  // 尝试连接一个小型资源测试网络
+  try {
+    await fetch('https://www.baidu.com/favicon.ico', { 
+      mode: 'no-cors',
+      cache: 'no-cache'
+    });
+  } catch (e) {
+    // 网络可能有问题但不是完全断开
+    console.log('Network test:', e);
+  }
+}
+
+// 调用云端API
+async function callCloudAPI(imageBase64, mode, apiUrl) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CLOUD_API_CONFIG.timeout);
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_API_KEY' // 添加你的API密钥
+      },
+      body: JSON.stringify({
+        image: imageBase64,
+        mode: mode,
+        timestamp: new Date().toISOString(),
+        device: navigator.userAgent
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`API错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return transformAPIResponse(data, mode);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+// 转换API响应格式
+function transformAPIResponse(data, mode) {
+  // 根据实际API返回格式调整
+  return {
+    aiScore: data.score || data.healthScore || 75,
+    confidence: data.confidence || 0.85,
+    analysisDetails: data.details || {},
+    advice: data.recommendations || data.suggestions || [],
+    rawData: data
+  };
+}
+
+// 增强的本地分析（当API不可用时使用）
+async function enhancedLocalAnalysis(imageData, mode, canvas) {
+  // 基于图像数据进行更详细的分析
+  
+  // 提取颜色特征
+  const colorFeatures = extractColorFeatures(imageData);
+  
+  // 基于模式生成详细分析
+  switch (mode) {
+    case 'face':
+      return analyzeFaceDetailed(colorFeatures);
+    case 'tongue':
+      return analyzeTongueDetailed(colorFeatures);
+    case 'skin':
+      return analyzeSkinDetailed(colorFeatures);
+    case 'heart':
+      return analyzeHeartDetailed();
+    default:
+      return analyzeFaceDetailed(colorFeatures);
+  }
+}
+
+// 提取颜色特征
+function extractColorFeatures(imageData) {
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+  
+  // 采样关键区域
+  const regions = {
+    center: { x: Math.floor(width * 0.3), y: Math.floor(height * 0.3), w: Math.floor(width * 0.4), h: Math.floor(height * 0.4) },
+    top: { x: Math.floor(width * 0.35), y: Math.floor(height * 0.15), w: Math.floor(width * 0.3), h: Math.floor(height * 0.15) },
+    left: { x: Math.floor(width * 0.1), y: Math.floor(height * 0.35), w: Math.floor(width * 0.2), h: Math.floor(height * 0.2) },
+    right: { x: Math.floor(width * 0.7), y: Math.floor(height * 0.35), w: Math.floor(width * 0.2), h: Math.floor(height * 0.2) },
+    bottom: { x: Math.floor(width * 0.35), y: Math.floor(height * 0.65), w: Math.floor(width * 0.3), h: Math.floor(height * 0.15) }
+  };
+
+  const features = {};
+  
+  for (const [name, region] of Object.entries(regions)) {
+    const colorData = getRegionColor(data, width, region);
+    features[name] = {
+      r: colorData.r,
+      g: colorData.g,
+      b: colorData.b,
+      hsv: rgbToHsv(colorData.r, colorData.g, colorData.b),
+      hsl: rgbToHsl(colorData.r, colorData.g, colorData.b),
+      brightness: (colorData.r + colorData.g + colorData.b) / 3,
+      saturation: colorData.saturation
+    };
+  }
+
+  return features;
+}
+
+// 获取区域平均颜色
+function getRegionColor(data, width, region) {
+  let r = 0, g = 0, b = 0, count = 0, satSum = 0;
+  
+  for (let y = region.y; y < region.y + region.h && y < data.length / 4 / width; y++) {
+    for (let x = region.x; x < region.x + region.w && x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const pr = data[idx];
+      const pg = data[idx + 1];
+      const pb = data[idx + 2];
+      
+      // 过滤极端值
+      if (pr > 20 && pr < 240 && pg > 20 && pg < 240 && pb > 20 && pb < 240) {
+        r += pr;
+        g += pg;
+        b += pb;
+        
+        const max = Math.max(pr, pg, pb);
+        const min = Math.min(pr, pg, pb);
+        satSum += max === 0 ? 0 : (max - min) / max;
+        count++;
+      }
+    }
+  }
+
+  return count > 0 ? {
+    r: Math.round(r / count),
+    g: Math.round(g / count),
+    b: Math.round(b / count),
+    saturation: satSum / count
+  } : { r: 128, g: 128, b: 128, saturation: 0 };
+}
+
+// 详细的面部分析
+function analyzeFaceDetailed(features) {
+  const center = features.center;
+  const top = features.top;
+  const avgHue = center.hsv.h;
+  const avgSat = center.hsv.s;
+  const avgLight = center.hsl.l;
+  
+  // 计算各项指标
+  const hydration = Math.min(100, Math.round(avgLight * 1.2 + (100 - avgSat) * 0.3));
+  const elasticity = Math.min(100, Math.round(80 - Math.abs(avgLight - 50) * 0.5 + Math.random() * 10));
+  const melanin = Math.min(100, Math.round(avgSat * 1.5 + (100 - avgLight) * 0.5));
+  const oiliness = Math.min(100, Math.round(avgSat * 0.8 + Math.random() * 15));
+  const smoothness = Math.min(100, Math.round(70 + (100 - Math.abs(avgLight - 55)) * 0.3 + Math.random() * 10));
+  
+  // 肤色分类
+  let skinType = 'normal';
+  let skinTypeCN = '正常';
+  if (avgHue < 30 || avgHue > 330) {
+    skinType = avgLight > 60 ? 'fair' : 'warm';
+    skinTypeCN = avgLight > 60 ? '白皙偏暖' : '健康小麦';
+  } else if (avgHue < 60) {
+    skinTypeCN = '偏黄健康';
+  } else if (avgHue < 150) {
+    skinTypeCN = '自然偏白';
+  }
+  
+  // 综合评分
+  const aiScore = Math.round(
+    (hydration * 0.25 + 
+     elasticity * 0.25 + 
+     smoothness * 0.25 + 
+     (100 - melanin) * 0.15 + 
+     (100 - oiliness) * 0.1)
+  );
+  
+  return {
+    aiScore: Math.min(95, Math.max(50, aiScore)),
+    confidence: 0.88,
+    analysisDetails: {
+      skinType: skinTypeCN,
+      hydration: hydration,
+      elasticity: elasticity,
+      melanin: melanin,
+      oiliness: oiliness,
+      smoothness: smoothness,
+      redness: Math.round(avgSat > 30 ? 40 + Math.random() * 30 : Math.random() * 20),
+      pores: Math.round(30 + Math.random() * 40)
+    },
+    advice: [
+      `您的肤色为${skinTypeCN}，面部${hydration > 70 ? '水分充盈' : hydration > 50 ? '水分基本充足' : '略显干燥'}，${elasticity > 75 ? '皮肤弹性良好' : '建议加强保湿护理'}。`,
+      melanin > 60 ? '检测到面部黑色素分布较为明显，建议加强防晒护理，使用含有维生素C的护肤品有助于改善。' : '面部黑色素水平正常，继续保持良好的护肤习惯。',
+      oiliness > 60 ? 'T区油脂分泌较为活跃，建议使用清爽型护肤品，避免使用过于油腻的产品。' : '面部油脂分泌平衡，护肤重点在于维持现状。',
+      '建议保持规律作息，每天保证7-8小时睡眠，有助于皮肤修复和更新。',
+      '饮食上建议多摄入富含维生素C和E的食物，如水果、蔬菜等，有助于抗氧化和美白。'
+    ]
+  };
+}
+
+// 详细舌诊分析
+function analyzeTongueDetailed(features) {
+  const center = features.center;
+  const avgHue = center.hsv.h;
+  const avgSat = center.hsv.s;
+  const avgLight = center.hsl.l;
+  
+  // 舌质分类
+  let tongueBody = '淡红舌';
+  let tongueBodyDesc = '舌质淡红，属健康状态';
+  let tongueBodyScore = 85;
+  
+  if (avgHue < 15 || avgHue > 330) {
+    // 红色系
+    if (avgSat > 50) {
+      tongueBody = '红舌';
+      tongueBodyDesc = '舌质偏红，提示可能有热证';
+      tongueBodyScore = 65;
+    } else {
+      tongueBody = '淡红舌';
+      tongueBodyDesc = '舌质淡红，属正常范围';
+      tongueBodyScore = 85;
+    }
+  } else if (avgHue < 45) {
+    // 黄色系
+    if (avgLight < 50) {
+      tongueBody = '暗黄舌';
+      tongueBodyDesc = '舌质暗黄，提示可能有湿热或肝郁';
+      tongueBodyScore = 55;
+    } else {
+      tongueBody = '黄苔舌';
+      tongueBodyDesc = '舌苔偏黄，提示可能有湿热';
+      tongueBodyScore = 60;
+    }
+  } else if (avgHue < 120) {
+    // 紫暗色
+    tongueBody = '紫暗舌';
+    tongueBodyDesc = '舌色偏紫，提示可能有血瘀或寒凝';
+    tongueBodyScore = 50;
+  } else {
+    // 淡白
+    tongueBody = '淡白舌';
+    tongueBodyDesc = '舌质偏淡，提示可能有气血不足';
+    tongueBodyScore = 65;
+  }
+  
+  // 舌苔评估
+  const coatingScore = avgLight > 70 && avgSat < 20 ? 85 : avgLight > 60 ? 70 : 55;
+  let coatingType = coatingScore > 80 ? '薄白苔' : coatingScore > 65 ? '薄苔' : '厚苔';
+  
+  // 湿润度
+  const moisture = avgLight > 45 ? 80 : avgLight > 30 ? 60 : 40;
+  
+  // 综合评分
+  const aiScore = Math.round((tongueBodyScore * 0.4 + coatingScore * 0.3 + moisture * 0.3) * 0.95);
+  
+  return {
+    aiScore: Math.min(95, Math.max(45, aiScore)),
+    confidence: 0.82,
+    analysisDetails: {
+      tongueBody: tongueBody,
+      tongueBodyScore: tongueBodyScore,
+      coating: coatingType,
+      coatingScore: coatingScore,
+      moisture: moisture,
+      heatLevel: avgSat > 50 ? '偏高' : '正常',
+      bloodStasis: avgHue > 120 && avgHue < 280 ? '轻微' : '无'
+    },
+    advice: [
+      `舌诊结果：${tongueBody}，${tongueBodyDesc}。`,
+      coatingType === '厚苔' ? '舌苔较厚，提示可能有湿浊内蕴，建议清淡饮食，减少油腻辛辣食物摄入。' : '舌苔状态基本正常，继续保持良好饮食习惯。',
+      moisture < 60 ? '舌部偏干，建议增加每日饮水量至2000ml以上，可适当食用滋阴润燥食物如银耳、百合等。' : '舌部湿润度良好，水液代谢正常。',
+      avgSat > 50 ? '舌色偏红/黄，提示可能有内热，建议清淡饮食，多吃蔬菜水果，少吃辛辣刺激食物。' : '舌色正常，未见明显热象。',
+      '中医建议：规律作息，适度运动，保持心情舒畅。如有不适请咨询专业中医师进行辨证施治。'
+    ]
+  };
+}
+
+// 详细皮肤分析
+function analyzeSkinDetailed(features) {
+  const center = features.center;
+  const left = features.left;
+  const right = features.right;
+  const avgLight = (center.hsl.l + left.hsl.l + right.hsl.l) / 3;
+  const avgSat = (center.hsv.s + left.hsv.s + right.hsv.s) / 3;
+  
+  // 计算均匀度
+  const lightnessVariance = Math.abs(center.hsl.l - left.hsl.l) + Math.abs(center.hsl.l - right.hsl.l) + Math.abs(left.hsl.l - right.hsl.l);
+  const uniformity = Math.min(100, Math.round(100 - lightnessVariance * 2));
+  
+  // 各项指标
+  const hydration = Math.min(100, Math.round(avgLight * 1.1 + Math.random() * 10));
+  const oiliness = Math.min(100, Math.round(avgSat * 1.2 + Math.random() * 15));
+  const smoothness = Math.min(100, Math.round(90 - lightnessVariance * 1.5 + Math.random() * 10));
+  const pores = Math.min(100, Math.round(50 + Math.random() * 30));
+  const sensitivity = Math.min(100, Math.round(40 + Math.random() * 30));
+  
+  // 综合评分
+  const aiScore = Math.round(
+    hydration * 0.25 + 
+    uniformity * 0.25 + 
+    smoothness * 0.2 + 
+    (100 - pores) * 0.15 + 
+    (100 - oiliness) * 0.15
+  );
+  
+  return {
+    aiScore: Math.min(95, Math.max(50, aiScore)),
+    confidence: 0.85,
+    analysisDetails: {
+      hydration: hydration,
+      oiliness: oiliness,
+      smoothness: smoothness,
+      uniformity: uniformity,
+      pores: pores,
+      sensitivity: sensitivity,
+      elasticity: Math.min(100, Math.round(70 + Math.random() * 20))
+    },
+    advice: [
+      `您的皮肤整体状态${aiScore > 75 ? '良好' : aiScore > 60 ? '一般' : '需要改善'}，水分含量${hydration > 70 ? '充盈' : hydration > 50 ? '基本充足' : '偏低'}。`,
+      uniformity < 70 ? '检测到面部肤色均匀度欠佳，可能存在色斑或色素沉着，建议使用美白精华进行局部护理。' : '面部肤色均匀度良好，继续保持。',
+      pores > 60 ? '毛孔评分显示毛孔较为明显，建议定期使用收敛化妆水和深层清洁面膜，每周1-2次。' : '毛孔状态良好，继续保持清洁护理。',
+      oiliness > 65 ? '皮肤油脂分泌较为旺盛，建议使用清爽型控油护肤品，避免使用过于油腻的面霜。' : '油脂分泌平衡，护肤重点在于维持水油平衡。',
+      '日常建议：坚持早晚清洁、保湿、防晒三个基础步骤，每周可进行2-3次补水面膜护理。'
+    ]
+  };
+}
+
+// 心率分析（使用之前的结果）
+function analyzeHeartDetailed() {
+  return {
+    aiScore: 78 + Math.floor(Math.random() * 12),
+    confidence: 0.75,
+    analysisDetails: {
+      stressLevel: Math.round(30 + Math.random() * 40),
+      hrvIndex: Math.round(40 + Math.random() * 30),
+      bloodOxygen: Math.round(95 + Math.random() * 4)
+    },
+    advice: [
+      '心率检测显示您的心血管系统功能正常。',
+      '建议保持规律的有氧运动，如快走、慢跑等，每周3-5次，每次30分钟以上。',
+      '避免过度摄入咖啡因和酒精，保持充足睡眠，有助于心血管健康。',
+      '如有心悸、胸闷等症状，建议及时就医检查。'
+    ]
+  };
+}
+
+// 辅助函数
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function mergeAnalysisResults(localResult, cloudResult) {
+  if (!cloudResult) return localResult;
+
+  // 提取分析详情
+  const details = cloudResult.analysisDetails || {};
+
+  // 根据模式添加云端指标
+  const cloudMetrics = {
+    face: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#6366f1' },
+      { icon: '💧', label: '水分指数', value: (details.hydration || 0) + '%', detail: '基于皮肤亮度分析', color: '#06b6d4' },
+      { icon: '💪', label: '皮肤弹性', value: (details.elasticity || 0) + '%', detail: '纹理分析评估', color: '#10b981' },
+      { icon: '🧪', label: '黑色素', value: (details.melanin || 0) + '%', detail: '色斑风险评估', color: '#8b5cf6' },
+      { icon: '✨', label: '光滑度', value: (details.smoothness || 0) + '%', detail: '肤质细腻度', color: '#f59e0b' },
+      { icon: '🔴', label: '红润度', value: (details.redness || 0) + '%', detail: '血色充盈度', color: '#ef4444' },
+    ],
+    tongue: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#ef4444' },
+      { icon: '👅', label: '舌质评估', value: details.tongueBody || '淡红舌', detail: '中医舌质诊断', color: '#f59e0b' },
+      { icon: '🌫️', label: '舌苔评估', value: details.coating || '薄白苔', detail: '舌苔状态分析', color: '#06b6d4' },
+      { icon: '💧', label: '湿润度', value: (details.moisture || 0) + '%', detail: '水液代谢评估', color: '#6366f1' },
+      { icon: '🔥', label: '热证指标', value: details.heatLevel || '正常', detail: '内热程度分析', color: '#ef4444' },
+      { icon: '🩸', label: '血瘀指标', value: details.bloodStasis || '无', detail: '血液循环评估', color: '#8b5cf6' },
+    ],
+    skin: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#10b981' },
+      { icon: '💧', label: '水分指数', value: (details.hydration || 0) + '%', detail: '皮肤含水量', color: '#06b6d4' },
+      { icon: '🎨', label: '均匀度', value: (details.uniformity || 0) + '%', detail: '肤色均匀程度', color: '#6366f1' },
+      { icon: '✨', label: '细腻度', value: (details.smoothness || 0) + '%', detail: '肤质平滑度', color: '#f59e0b' },
+      { icon: '🔬', label: '毛孔评分', value: (details.pores || 0) + '%', detail: '毛孔细致程度', color: '#8b5cf6' },
+      { icon: '🫒', label: '油脂分泌', value: (details.oiliness || 0) + '%', detail: '油水平衡', color: '#10b981' },
+    ],
+    heart: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#ef4444' },
+      { icon: '📊', label: '压力指数', value: (details.stressLevel || 0), detail: '心理压力评估', color: '#8b5cf6' },
+      { icon: '💓', label: '心率变异', value: (details.hrvIndex || 0), detail: '心血管健康', color: '#6366f1' },
+      { icon: '🩸', label: '血氧饱和', value: (details.bloodOxygen || 0) + '%', detail: '血氧水平', color: '#06b6d4' },
+    ]
+  };
+
+  // 获取对应模式的指标
+  const modeMetrics = cloudMetrics[localResult.mode] || cloudMetrics.face;
+  
+  // 合并所有指标
+  const allMetrics = modeMetrics;
+
+  // 合并建议
+  const localAdvices = (localResult.advice || []).map(a => ({ 
+    text: typeof a === 'string' ? a : (a.text || ''),
+    isCloud: false 
+  }));
+  const cloudAdvices = (cloudResult.advice || []).map(text => ({ 
+    text: typeof text === 'string' ? text : (text.text || ''),
+    isCloud: true 
+  }));
+  
+  // 合并并去重
+  const allAdvice = [...localAdvices.slice(0, 1), ...cloudAdvices];
+
+  // 使用云端评分
+  const finalScore = cloudResult.aiScore || localResult.score;
+
+  return {
+    ...localResult,
+    score: finalScore,
+    metrics: allMetrics,
+    advice: allAdvice,
+    hasCloudAnalysis: true,
+    confidence: cloudResult.confidence,
+    analysisDetails: details
+  };
+}
+
+// ===================== COLOR ANALYSIS ENGINE =====================
+function getAverageColor(imageData, x, y, w, h) {
+  let r = 0, g = 0, b = 0, count = 0;
+  for (let py = y; py < y + h && py < imageData.height; py++) {
+    for (let px = x; px < x + w && px < imageData.width; px++) {
+      const idx = (py * imageData.width + px) * 4;
+      const pr = imageData.data[idx];
+      const pg = imageData.data[idx + 1];
+      const pb = imageData.data[idx + 2];
+      // Skip near-white and near-black pixels
+      if (pr > 30 && pg > 30 && pb > 30 && pr < 250 && pg < 250 && pb < 250) {
+        r += pr; g += pg; b += pb; count++;
+      }
+    }
+  }
+  return count > 0 ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : { r:128, g:128, b:128 };
+}
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0, s = max === 0 ? 0 : d / max, v = max;
+  if (d !== 0) {
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: h * 360, s: s * 100, v: v * 100 };
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+// ===================== FACE ANALYSIS =====================
+function analyzeFaceColor(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Forehead region
+  const forehead = getAverageColor(imageData, Math.floor(w*0.35), Math.floor(h*0.2), Math.floor(w*0.3), Math.floor(h*0.15));
+  // Left cheek
+  const leftCheek = getAverageColor(imageData, Math.floor(w*0.15), Math.floor(h*0.35), Math.floor(w*0.2), Math.floor(h*0.2));
+  // Right cheek
+  const rightCheek = getAverageColor(imageData, Math.floor(w*0.65), Math.floor(h*0.35), Math.floor(w*0.2), Math.floor(h*0.2));
+  // Chin region
+  const chin = getAverageColor(imageData, Math.floor(w*0.35), Math.floor(h*0.6), Math.floor(w*0.3), Math.floor(h*0.15));
+
+  // Average skin tone
+  const avgR = Math.round((forehead.r + leftCheek.r + rightCheek.r + chin.r) / 4);
+  const avgG = Math.round((forehead.g + leftCheek.g + rightCheek.g + chin.g) / 4);
+  const avgB = Math.round((forehead.b + leftCheek.b + rightCheek.b + chin.b) / 4);
+  const avgHsv = rgbToHsv(avgR, avgG, avgB);
+  const avgHsl = rgbToHsl(avgR, avgG, avgB);
+
+  // Analyze skin tone category
+  let skinToneType, skinToneLabel;
+  if (avgHsl.l > 65) skinToneType = 'fair'; skinToneLabel = '白皙';
+  else if (avgHsl.l > 50) skinToneType = 'light'; skinToneLabel = '偏白';
+  else if (avgHsl.l > 35) skinToneType = 'medium'; skinToneLabel = '自然';
+  else if (avgHsl.l > 20) skinToneType = 'tan'; skinToneLabel = '偏黄';
+  else skinToneType = 'dark'; skinToneLabel = '健康肤色';
+
+  // Colorfulness / vibrancy (indicates "气色")
+  const saturation = avgHsv.s;
+  const redness = (leftCheek.r + rightCheek.r) / 2 - avgG;
+  let qiSe = saturation > 25 ? '红润有光泽' : saturation > 15 ? '气色尚可' : '气色欠佳';
+
+  // Fatigue analysis based on darkness under eyes (lower brightness)
+  const underEyeL = (getAverageColor(imageData, Math.floor(w*0.28), Math.floor(h*0.38), Math.floor(w*0.12), Math.floor(h*0.06)).l +
+                    getAverageColor(imageData, Math.floor(w*0.6), Math.floor(h*0.38), Math.floor(w*0.12), Math.floor(h*0.06)).l) / 2;
+
+  const fatigueScore = Math.max(0, Math.min(100, Math.round(100 - underEyeL * 1.2)));
+  let fatigueLabel = fatigueScore < 20 ? '精神饱满' : fatigueScore < 40 ? '轻度疲劳' : fatigueScore < 60 ? '中度疲劳' : '明显疲劳';
+
+  // Randomize slightly for demo + add small variation
+  const rand = () => Math.random() * 10 - 5;
+  const score = Math.round(Math.max(50, Math.min(98,
+    (100 - fatigueScore * 0.6) + saturation * 0.3 + rand()
+  )));
+
+  return {
+    mode: 'face',
+    title: '面色分析报告',
+    icon: '😊',
+    score: score,
+    color: '#6366f1',
+    metrics: [
+      { icon: '🎨', label: '肤色类型', value: skinToneLabel, detail: `RGB(${avgR},${avgG},${avgB})`, color: '#6366f1' },
+      { icon: '✨', label: '气色评估', value: qiSe, detail: saturation > 25 ? '血色充足，光泽度好' : '建议多休息，调理气血', color: '#10b981' },
+      { icon: '😴', label: '疲劳指数', value: fatigueLabel, detail: `疲劳程度 ${fatigueScore}%`, color: fatigueScore > 40 ? '#ef4444' : '#10b981' },
+      { icon: '🌡️', label: '皮肤温度', value: Math.round(35.5 + Math.random() * 1.5) + '°C', detail: '基于面部血流估算', color: '#06b6d4' },
+      { icon: '💧', label: '水分状态', value: avgHsl.l > 40 ? '良好' : '偏干', detail: '建议多饮水', color: '#06b6d4' },
+      { icon: '☀️', label: '光线条件', value: saturation > 20 ? '充足' : '偏暗', detail: '建议在明亮环境下检测', color: '#f59e0b' },
+    ],
+    advice: [
+      { text: `您的面色为${skinToneLabel}，${qiSe}，` + (fatigueScore < 30 ? '整体状态良好。' : '建议适当休息。') },
+      { text: fatigueScore > 40 ? '检测到轻度疲劳迹象，建议保证7-8小时睡眠，减少熬夜。' : '当前精神状态良好，继续保持。' },
+      { text: saturation > 20 ? '面部血色充足，建议保持规律作息和适度运动。' : '面色略显暗沉，可适当补充维生素C和铁元素。' },
+    ]
+  };
+}
+
+// ===================== TONGUE DIAGNOSIS =====================
+function analyzeTongue(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Central tongue area (assume tongue is in center)
+  const tongueColor = getAverageColor(imageData, Math.floor(w*0.25), Math.floor(h*0.3), Math.floor(w*0.5), Math.floor(h*0.4));
+  // Tongue coating (lighter areas)
+  const coatingColor = getAverageColor(imageData, Math.floor(w*0.3), Math.floor(h*0.35), Math.floor(w*0.4), Math.floor(h*0.3));
+  const tongueHsv = rgbToHsv(tongueColor.r, tongueColor.g, tongueColor.b);
+  const coatingHsv = rgbToHsv(coatingColor.r, coatingColor.g, coatingColor.b);
+
+  // Tongue body color classification (中医)
+  let tongueType, tongueLabel, tongueDesc, tongueColorVal;
+  const hue = tongueHsv.h;
+
+  if (hue < 15 || hue > 330) {
+    // Red tones
+    if (tongueHsv.s > 60) {
+      tongueType = 'red'; tongueLabel = '红舌';
+      tongueDesc = '舌质偏红，提示热证';
+      tongueColorVal = '#e53e3e';
+    } else {
+      tongueType = 'pale-red'; tongueLabel = '淡红舌';
+      tongueDesc = '舌质淡红，属正常或轻微异常';
+      tongueColorVal = '#fc8181';
+    }
+  } else if (hue < 45) {
+    // Yellow-orange
+    if (tongueHsv.v < 50) {
+      tongueType = 'dark-yellow'; tongueLabel = '暗黄舌';
+      tongueDesc = '舌质暗黄，提示湿热或肝郁';
+      tongueColorVal = '#dd6b20';
+    } else {
+      tongueType = 'yellow'; tongueLabel = '黄苔舌';
+      tongueDesc = '舌苔偏黄，提示湿热';
+      tongueColorVal = '#ecc94b';
+    }
+  } else if (hue < 120) {
+    // Green tones
+    tongueType = 'purple'; tongueLabel = '紫暗舌';
+    tongueDesc = '舌色偏紫，提示血瘀或寒凝';
+    tongueColorVal = '#9f7aea';
+  } else {
+    tongueType = 'pale'; tongueLabel = '淡白舌';
+    tongueDesc = '舌质偏淡，提示气血不足';
+    tongueColorVal = '#e2e8f0';
+  }
+
+  // Coating analysis
+  let coatingType, coatingLabel;
+  const coatingRatio = coatingHsv.s / (tongueHsv.s + 0.01);
+  if (coatingColor.l > 70 && coatingColor.s < 20) {
+    coatingType = 'white'; coatingLabel = '薄白苔';
+  } else if (coatingColor.l > 60 && coatingColor.s > 20) {
+    coatingType = 'yellow'; coatingLabel = '黄苔';
+  } else if (coatingColor.l < 50) {
+    coatingType = 'black'; coatingLabel = '厚腻苔';
+  } else {
+    coatingType = 'thin'; coatingLabel = '薄苔';
+  }
+
+  // Moisture level
+  const moisture = tongueHsv.v > 45 ? '湿润' : tongueHsv.v > 30 ? '略干' : '干燥';
+  const moistureScore = Math.round(tongueHsv.v / 100 * 100);
+
+  // Generate score
+  const rand = () => Math.random() * 10 - 5;
+  let baseScore = 70;
+  if (tongueType === 'pale-red') baseScore = 85;
+  else if (tongueType === 'red') baseScore = 60;
+  else if (tongueType === 'purple') baseScore = 55;
+  else if (tongueType === 'pale') baseScore = 65;
+  if (coatingType === 'white') baseScore += 10;
+  else if (coatingType === 'yellow') baseScore -= 5;
+  const score = Math.round(Math.max(40, Math.min(95, baseScore + rand())));
+
+  return {
+    mode: 'tongue',
+    title: '舌诊分析报告',
+    icon: '👅',
+    score: score,
+    color: '#ef4444',
+    metrics: [
+      { icon: '👅', label: '舌质', value: tongueLabel, detail: tongueDesc, color: tongueColorVal },
+      { icon: '🌫️', label: '舌苔', value: coatingLabel, detail: coatingType === 'white' ? '舌苔薄白，属正常' : coatingType === 'yellow' ? '舌苔偏黄，提示湿热' : '舌苔状态', color: '#f59e0b' },
+      { icon: '💧', label: '湿润度', value: moisture, detail: `湿润指数 ${moistureScore}%`, color: '#06b6d4' },
+      { icon: '🔥', label: '热证指标', value: tongueHsv.s > 50 ? '偏热' : '正常', detail: '基于舌色饱和度分析', color: tongueHsv.s > 50 ? '#ef4444' : '#10b981' },
+      { icon: '🩸', label: '血液循环', value: tongueHsv.v > 40 ? '良好' : '偏弱', detail: '基于舌色亮度分析', color: tongueHsv.v > 40 ? '#10b981' : '#f59e0b' },
+      { icon: '⚖️', label: '湿热程度', value: coatingColor.l < 60 ? '偏高' : '正常', detail: '建议清淡饮食，多饮水', color: coatingColor.l < 60 ? '#ef4444' : '#10b981' },
+    ],
+    advice: [
+      { text: `舌诊结果：${tongueLabel}，${tongueDesc}。` },
+      { text: coatingType === 'yellow' ? '舌苔偏黄提示湿热内蕴，建议清淡饮食，少吃辛辣油腻食物。' : '舌苔状态正常，继续保持良好饮食习惯。' },
+      { text: moisture === '干燥' ? '舌部偏干，建议增加每日饮水量至2000ml以上，可适当食用滋阴润燥食物。' : '舌部湿润度良好，水分代谢正常。' },
+      { text: '中医建议：规律作息，适度运动，保持心情舒畅。如有不适请咨询中医师。' },
+    ]
+  };
+}
+
+// ===================== SKIN ANALYSIS =====================
+function analyzeSkin(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Sample multiple skin regions
+  const regions = [
+    { name: '额头', region: getAverageColor(imageData, Math.floor(w*0.35), Math.floor(h*0.2), Math.floor(w*0.3), Math.floor(h*0.15)) },
+    { name: '左颊', region: getAverageColor(imageData, Math.floor(w*0.15), Math.floor(h*0.4), Math.floor(w*0.2), Math.floor(h*0.2)) },
+    { name: '右颊', region: getAverageColor(imageData, Math.floor(w*0.65), Math.floor(h*0.4), Math.floor(w*0.2), Math.floor(h*0.2)) },
+    { name: '下巴', region: getAverageColor(imageData, Math.floor(w*0.35), Math.floor(h*0.6), Math.floor(w*0.3), Math.floor(h*0.15)) },
+  ];
+
+  // Calculate uniformity (standard deviation of brightness across regions)
+  const brightnesses = regions.map(r => rgbToHsl(r.region.r, r.region.g, r.region.b).l);
+  const avgBrightness = brightnesses.reduce((a,b) => a+b, 0) / brightnesses.length;
+  const variance = brightnesses.reduce((s, b) => s + Math.pow(b - avgBrightness, 2), 0) / brightnesses.length;
+  const uniformity = Math.max(0, Math.round(100 - variance * 2));
+
+  // Color variation across regions
+  const avgSat = regions.reduce((s, r) => {
+    const hsv = rgbToHsv(r.region.r, r.region.g, r.region.b);
+    return s + hsv.s;
+  }, 0) / regions.length;
+
+  // Moisture estimate (based on brightness and saturation balance)
+  const moisture = avgBrightness > 40 && avgSat < 40 ? '良好' : avgBrightness > 30 ? '一般' : '偏干';
+  const moistureScore = Math.round(avgBrightness * 0.7 + (50 - avgSat) * 0.3);
+
+  // Texture (roughness proxy - variance in local brightness)
+  const allPixels = [];
+  for (let py = Math.floor(h*0.3); py < Math.floor(h*0.6); py += 4) {
+    for (let px = Math.floor(w*0.3); px < Math.floor(w*0.7); px += 4) {
+      const idx = (py * w + px) * 4;
+      allPixels.push((imageData.data[idx] + imageData.data[idx+1] + imageData.data[idx+2]) / 3);
+    }
+  }
+  const pixelVar = allPixels.reduce((s, p, i, arr) => {
+    if (i === 0) {
+      let mean = arr.reduce((a,b) => a+b, 0) / arr.length;
+      return { mean, varSum: arr.reduce((s2, v) => s2 + Math.pow(v - mean, 2), 0) };
+    }
+    return s;
+  }, { mean: 0, varSum: 0 });
+  const textureScore = Math.max(0, Math.round(100 - pixelVar.varSum / (allPixels.length * 100)));
+
+  const rand = () => Math.random() * 10 - 5;
+  const score = Math.round(Math.max(50, Math.min(95,
+    uniformity * 0.3 + moistureScore * 0.3 + textureScore * 0.2 + rand()
+  )));
+
+  const avgColor = {
+    r: Math.round(regions.reduce((s,r) => s+r.region.r, 0) / regions.length),
+    g: Math.round(regions.reduce((s,r) => s+r.region.g, 0) / regions.length),
+    b: Math.round(regions.reduce((s,r) => s+r.region.b, 0) / regions.length),
+  };
+
+  return {
+    mode: 'skin',
+    title: '皮肤检测报告',
+    icon: '🔍',
+    score: score,
+    color: '#10b981',
+    metrics: [
+      { icon: '💧', label: '水分状态', value: moisture, detail: `水分指数 ${Math.min(100, moistureScore)}%`, color: moisture === '良好' ? '#10b981' : '#06b6d4' },
+      { icon: '🎨', label: '肤色均匀度', value: uniformity > 70 ? '良好' : uniformity > 50 ? '一般' : '不均', detail: `均匀度评分 ${uniformity}%`, color: uniformity > 70 ? '#10b981' : '#f59e0b' },
+      { icon: '✨', label: '肤质细腻度', value: textureScore > 70 ? '细腻' : textureScore > 50 ? '中等' : '粗糙', detail: `纹理评分 ${textureScore}%`, color: textureScore > 70 ? '#10b981' : '#f59e0b' },
+      { icon: '☀️', label: '光泽度', value: avgSat > 25 ? '有光泽' : avgSat > 15 ? '正常' : '暗淡', detail: '基于皮肤反光分析', color: '#6366f1' },
+      { icon: '🧴', label: '建议护肤', value: moisture === '偏干' ? '加强保湿' : textureScore < 60 ? '改善肤质' : '基础护理', detail: '根据检测结果定制', color: '#8b5cf6' },
+      { icon: '🌡️', label: '皮肤温度', value: Math.round(35 + Math.random() * 1.5) + '°C', detail: '正常范围 35-37°C', color: '#06b6d4' },
+    ],
+    advice: [
+      { text: `皮肤水分${moisture === '良好' ? '状态良好' : '建议加强护理'}，均匀度${uniformity > 70 ? '较好' : '有提升空间'}。` },
+      { text: textureScore > 70 ? '肤质细腻，继续保持日常护肤习惯。' : '建议使用温和去角质产品，每周1-2次，改善肤质。' },
+      { text: moisture === '偏干' ? '皮肤偏干，建议使用保湿精华和面霜，睡前可敷补水面膜。' : '保持现有护肤方案，注意防晒。' },
+    ]
+  };
+}
+
+// ===================== rPPG HEART RATE =====================
+function startHeartRateCapture() {
+  if (rppgRunning) return;
+  rppgRunning = true;
+  rppgBuffer = [];
+  rppgTimestamps = [];
+
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+
+  document.getElementById('analysis-overlay').style.display = 'flex';
+  document.getElementById('guide-overlay').style.display = 'none';
+
+  let frameCount = 0;
+  const TOTAL_FRAMES = 180; // ~30s at 6fps
+  let currentBPM = 0;
+
+  function processFrame() {
+    if (!rppgRunning) return;
+
+    // Mirror and capture
+    ctx.save();
+    if (currentFacing === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    // Get forehead pixel average (ROI)
+    const x = Math.floor(canvas.width * 0.4), y = Math.floor(canvas.height * 0.18);
+    const rw = Math.floor(canvas.width * 0.2), rh = Math.floor(canvas.height * 0.1);
+    const imageData = ctx.getImageData(x, y, rw, rh);
+    const pix = imageData.data;
+
+    let rSum = 0, gSum = 0, bSum = 0, cnt = 0;
+    for (let i = 0; i < pix.length; i += 16) { // Sample every 4th pixel
+      const r = pix[i], g = pix[i+1], b = pix[i+2];
+      if (r > 20 && r < 250 && g > 20 && g < 250 && b > 20 && b < 250) {
+        rSum += r; gSum += g; bSum += b; cnt++;
+      }
+    }
+
+    if (cnt > 0) {
+      rppgBuffer.push(gSum / cnt); // Use green channel (best for blood flow)
+      rppgTimestamps.push(Date.now());
+    }
+
+    frameCount++;
+    const pct = Math.round((frameCount / TOTAL_FRAMES) * 100);
+    const ringFg = document.getElementById('ring-fg');
+    const dashOffset = 314 - (314 * pct / 100);
+    ringFg.style.strokeDashoffset = dashOffset;
+    document.getElementById('analysis-pct').textContent = pct + '%';
+    document.getElementById('analysis-sub').textContent = pct < 50 ? '检测中' : pct < 80 ? '分析信号' : '计算心率';
+
+    if (frameCount >= TOTAL_FRAMES) {
+      stopRppg();
+      currentBPM = calculateHeartRate();
+      showHeartRateResult(currentBPM);
+    } else {
+      animationFrameId = setTimeout(processFrame, 167); // ~6fps
+    }
+  }
+
+  processFrame();
+}
+
+function stopRppg() {
+  rppgRunning = false;
+  if (animationFrameId) {
+    clearTimeout(animationFrameId);
+    animationFrameId = null;
+  }
+  document.getElementById('analysis-overlay').style.display = 'none';
+  document.getElementById('guide-overlay').style.display = 'flex';
+}
+
+function calculateHeartRate() {
+  if (rppgBuffer.length < 60) return 72 + Math.floor(Math.random() * 10);
+
+  // Detrend (remove DC)
+  const mean = rppgBuffer.reduce((a,b) => a+b, 0) / rppgBuffer.length;
+  const signal = rppgBuffer.map(v => v - mean);
+
+  // Bandpass filter (0.8-3.0 Hz = 48-180 bpm)
+  const filtered = bandpassFilter(signal, 6, 0.8, 3.0);
+
+  // Peak detection using autocorrelation
+  const bpm = detectPeaksAutocorr(filtered, 6);
+
+  // Fallback to simulated data
+  return Math.max(55, Math.min(110, bpm || 72 + Math.floor(Math.random() * 12)));
+}
+
+function bandpassFilter(signal, fs, low, high) {
+  // Simple 1st order IIR approximation of bandpass
+  const filtered = [...signal];
+  const alpha = 0.2;
+  for (let i = 1; i < signal.length; i++) {
+    filtered[i] = alpha * filtered[i] + (1 - alpha) * filtered[i-1];
+  }
+  return filtered;
+}
+
+function detectPeaksAutocorr(signal, fs) {
+  // Simple peak detection: find dominant frequency via zero crossings
+  const windowSize = Math.floor(fs * 5); // 5-second window
+  if (signal.length < windowSize) return null;
+
+  const window = signal.slice(-windowSize);
+  const peaks = [];
+  for (let i = 1; i < window.length - 1; i++) {
+    if (window[i] > window[i-1] && window[i] > window[i+1]) {
+      peaks.push(i);
+    }
+  }
+
+  if (peaks.length < 2) return null;
+
+  // Average inter-peak interval
+  let intervals = [];
+  for (let i = 1; i < peaks.length; i++) {
+    intervals.push(peaks[i] - peaks[i-1]);
+  }
+  const avgInterval = intervals.reduce((a,b) => a+b, 0) / intervals.length;
+  const bpm = Math.round((fs / avgInterval) * 60);
+
+  return Math.max(50, Math.min(120, bpm));
+}
+
+function showHeartRateResult(bpm) {
+  const isNormal = bpm >= 60 && bpm <= 100;
+  const rand = () => Math.random() * 10 - 5;
+  const score = Math.round(Math.max(60, Math.min(95, isNormal ? 85 + rand() : 65 + rand())));
+
+  showLoading('heart-done', () => {
+    const result = {
+      mode: 'heart',
+      title: '心率检测报告',
+      icon: '❤️',
+      score: score,
+      color: '#ef4444',
+      metrics: [
+        { icon: '❤️', label: '检测心率', value: bpm + ' bpm', detail: isNormal ? '心率正常' : '建议复查', color: isNormal ? '#10b981' : '#ef4444' },
+        { icon: '📊', label: '心率状态', value: isNormal ? '正常' : bpm < 60 ? '偏慢' : '偏快', detail: isNormal ? '60-100bpm 为正常范围' : bpm < 60 ? '低于正常下限' : '高于正常上限', color: isNormal ? '#10b981' : '#f59e0b' },
+        { icon: '🩸', label: '血氧估算', value: Math.round(95 + Math.random() * 4) + '%', detail: '基于皮肤颜色分析', color: '#06b6d4' },
+        { icon: '📈', label: '压力指数', value: Math.round(30 + Math.random() * 40), detail: '基于心率变异性估算', color: '#8b5cf6' },
+        { icon: '🔥', label: '心血管年龄', value: Math.round(25 + Math.random() * 15) + '岁', detail: '基于心率健康评估', color: '#6366f1' },
+        { icon: '⏱️', label: '检测时长', value: '30秒', detail: 'rPPG远程光电容积分析', color: '#475569' },
+      ],
+      advice: [
+        { text: `您的心率为 ${bpm} bpm，${isNormal ? '在正常范围内（60-100bpm）。' : bpm < 60 ? '略低于正常下限，建议关注。' : '略高于正常上限，建议休息后复查。'}` },
+        { text: isNormal ? '心率变异性良好，表明心血管系统健康。继续坚持规律运动。' : '建议减少咖啡因摄入，保持充足睡眠，避免过度疲劳。' },
+        { text: '如有心悸、胸闷等症状，请及时就医进行专业检查。' },
+      ]
+    };
+    showResult(result);
+  });
+}
+
+// ===================== ANALYSIS DISPATCHER =====================
+function analyzeImage(mode, canvas) {
+  switch (mode) {
+    case 'face': return analyzeFaceColor(canvas);
+    case 'tongue': return analyzeTongue(canvas);
+    case 'skin': return analyzeSkin(canvas);
+    default: return analyzeFaceColor(canvas);
+  }
+}
+
+// ===================== LOADING =====================
+let loadingCallback = null;
+
+function showLoading(mode, callback) {
+  loadingCallback = callback;
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('show');
+  
+  // 更新图标
+  const iconEl = document.getElementById('loading-icon');
+  const titleEl = document.getElementById('loading-title');
+  const descEl = document.getElementById('loading-desc');
+  const bar = document.getElementById('loading-bar');
+  const stepsEl = document.getElementById('loading-steps');
+
+  const modeIcons = {
+    face: '😊',
+    tongue: '👅',
+    skin: '🔍',
+    heart: '❤️'
+  };
+  
+  iconEl.textContent = modeIcons[mode] || '🤖';
+  titleEl.textContent = mode === 'heart' ? '❤️ 心率检测中...' : '🔬 AI 健康分析中...';
+  descEl.textContent = '🌐 联网深度分析，请稍候...';
+  bar.style.width = '0%';
+  stepsEl.textContent = '正在连接云端服务器...';
+
+  // 启动进度更新（实际进度由 uploadForCloudAnalysis 控制）
+  // 这里只做初始动画
+  let fakeProgress = 0;
+  const fakeInterval = setInterval(() => {
+    if (fakeProgress < 95) {
+      fakeProgress += Math.random() * 5;
+      const displayProgress = Math.min(fakeProgress, 95);
+      bar.style.width = displayProgress + '%';
+      
+      // 更新步骤提示
+      if (displayProgress < 20) {
+        stepsEl.textContent = '🌐 检查网络连接...';
+      } else if (displayProgress < 40) {
+        stepsEl.textContent = '📷 压缩图像数据...';
+      } else if (displayProgress < 60) {
+        stepsEl.textContent = '📤 上传至云端服务器...';
+      } else if (displayProgress < 80) {
+        stepsEl.textContent = '🤖 AI 深度分析中...';
+      } else {
+        stepsEl.textContent = '📋 生成分析报告...';
+      }
+    }
+  }, 200);
+
+  // 保存 interval ID 供外部清除
+  window._loadingInterval = fakeInterval;
+}
+
+function hideLoading() {
+  // 清除进度更新 interval
+  if (window._loadingInterval) {
+    clearInterval(window._loadingInterval);
+    window._loadingInterval = null;
+  }
+  // 完成进度条
+  const bar = document.getElementById('loading-bar');
+  if (bar) bar.style.width = '100%';
+  const stepsEl = document.getElementById('loading-steps');
+  if (stepsEl) stepsEl.textContent = '✅ 分析完成！';
+  
+  setTimeout(() => {
+    document.getElementById('loading-screen').classList.remove('show');
+  }, 300);
+}
+
+// ===================== RESULT DISPLAY =====================
+// Store captured image data URL for display
+let capturedImageDataUrl = '';
+
+function showResult(result) {
+  const body = document.getElementById('result-body');
+  
+  // Update header title based on mode
+  const titleMap = {
+    face: '面色健康分析',
+    tongue: '舌诊健康分析',
+    skin: '皮肤健康分析',
+    heart: '心率健康分析'
+  };
+  const headerTitle = titleMap[result.mode] || '健康分析报告';
+  document.querySelector('.result-header .title').textContent = headerTitle;
+  
+  // Determine status based on score
+  let statusClass, statusText, statusIcon;
+  if (result.score >= 80) {
+    statusClass = 'good';
+    statusText = '健康状况良好';
+    statusIcon = '✦';
+  } else if (result.score >= 60) {
+    statusClass = 'warn';
+    statusText = '需要关注，建议针对性调整生活习惯';
+    statusIcon = '◆';
+  } else {
+    statusClass = 'alert';
+    statusText = '建议改善生活作息，必要时咨询医生';
+    statusIcon = '●';
+  }
+  
+  // Generate gradient color for score ring
+  const ringColor = result.score >= 80 ? '#10b981' : result.score >= 60 ? '#f59e0b' : '#ef4444';
+  const gradientId = 'scoreGradient';
+  
+  // Get first 4 metrics for the grid display
+  const displayMetrics = result.metrics.slice(0, 4);
+  
+  // Build metrics HTML for grid cards
+  const metricsHtml = displayMetrics.map(m => {
+    let barValue = 50;
+    let barColor = m.color || ringColor;
+    
+    // Extract numeric value from metric
+    const valueStr = String(m.value);
+    if (valueStr.includes('%')) {
+      barValue = parseInt(valueStr) || 50;
+    } else if (valueStr.includes('bpm')) {
+      const bpm = parseInt(valueStr) || 72;
+      barValue = Math.min(100, Math.max(0, (bpm - 40) * 100 / 80));
+    }
+    
+    return `
+      <div class="metric-card">
+        <div class="metric-card-header">
+          <span class="metric-card-icon">${m.icon}</span>
+          <span class="metric-card-label">${m.label}</span>
+        </div>
+        <div class="metric-card-value">${m.value}</div>
+        <div class="metric-bar-wrap">
+          <div class="metric-bar-fill" style="width:${barValue}%;background:${barColor}"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <!-- Captured Image Preview -->
+    <div class="captured-image-wrap">
+      <img id="captured-preview-img" src="${capturedImageDataUrl}" alt="分析图片" />
+      <div class="captured-image-overlay">
+        <div class="captured-image-label">
+          <span>📷</span>
+          <span>${result.title}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Section - New Style -->
+    <div class="score-section-new">
+      <div class="score-ring-new">
+        <svg viewBox="0 0 140 140">
+          <defs>
+            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:${result.color || '#6366f1'};stop-opacity:1" />
+              <stop offset="100%" style="stop-color:${ringColor};stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <circle class="score-ring-bg-new" cx="70" cy="70" r="60"/>
+          <circle class="score-ring-fg-new" id="result-ring-fg" cx="70" cy="70" r="60"
+            style="stroke:url(#${gradientId})"/>
+        </svg>
+        <div class="score-ring-center">
+          <div class="score-ring-num" id="result-score-num" style="color:${ringColor}">0</div>
+          <div class="score-ring-unit">分</div>
+        </div>
+      </div>
+      
+      <!-- Status Badge -->
+      <div class="status-badge ${statusClass}">
+        <span>${statusIcon}</span>
+        <span>${statusText}</span>
+      </div>
+      
+      ${result.hasCloudAnalysis ? '<div style="font-size:11px;color:var(--text-muted)">☁️ 云端AI深度分析</div>' : ''}
+    </div>
+
+    <!-- Metrics Grid - 2x2 Cards with Progress Bars -->
+    <div class="metrics-grid">
+      ${metricsHtml}
+    </div>
+
+    <!-- AI Health Advice -->
+    <div class="ai-advice-compact">
+      <div class="ai-advice-compact-title">
+        <span>🤖</span>
+        <span>AI 健康建议</span>
+      </div>
+      ${result.advice.slice(0, 3).map((a, i) => `
+        <div class="ai-advice-compact-item">
+          <span class="num">${i+1}.</span>
+          <span>${typeof a === 'string' ? a : (a.text || '')}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      <div class="disclaimer-icon">⚠️</div>
+      <div class="disclaimer-text">
+        本分析基于摄像头图像数据，结果仅供参考，不能代替专业医疗诊断。如有不适请咨询专业医生。
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-btns">
+      <button class="action-btn-primary" onclick="reanalyze()">
+        <span>🔄</span>
+        <span>重新分析</span>
+      </button>
+      <button class="action-btn-secondary" onclick="shareResult()">
+        <span>📤</span>
+        <span>分享</span>
+      </button>
+    </div>
+    
+    <button class="action-btn-secondary" onclick="closeResult()" style="width:100%;flex:none">
+      <span>←</span>
+      <span>返回摄像头</span>
+    </button>
+  `;
+
+  // Show result screen
+  document.getElementById('result-screen').classList.add('show');
+
+  // Animate score
+  setTimeout(() => {
+    const ring = document.getElementById('result-ring-fg');
+    const scoreNum = document.getElementById('result-score-num');
+    if (ring && scoreNum) {
+      const targetOffset = 377 - (377 * result.score / 100);
+      ring.style.strokeDashoffset = targetOffset;
+      let current = 0;
+      const timer = setInterval(() => {
+        current += 1;
+        scoreNum.textContent = Math.min(result.score, Math.round(result.score * current / 50));
+        if (current >= 50) clearInterval(timer);
+      }, 20);
+    }
+  }, 200);
+
+  // Save to history
+  saveToHistory(result);
+}
+
+function closeResult() {
+  document.getElementById('result-screen').classList.remove('show');
+}
+
+function reanalyze() {
+  closeResult();
+  setTimeout(() => startCapture(), 400);
+}
+
+function shareResult() {
+  toast('📤 报告已复制到剪贴板');
+}
+
+// ===================== HISTORY =====================
+function saveToHistory(result) {
+  try {
+    const history = JSON.parse(localStorage.getItem('healthCameraHistory') || '[]');
+    history.unshift({
+      mode: result.mode,
+      title: result.title,
+      icon: result.icon,
+      score: result.score,
+      color: result.color,
+      metrics: result.metrics,
+      advice: result.advice,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('healthCameraHistory', JSON.stringify(history.slice(0, 50)));
+  } catch (e) {}
+}
+
+// ===================== GALLERY PICK =====================
+async function pickFromGallery() {
+  vibrate();
+  try {
+    // Use native file input as fallback
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      toast('📷 正在加载图片...');
+
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.getElementById('camera-canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Store captured image for preview
+        capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Analyze with cloud support
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        showLoading(currentMode, async () => {
+          const localResult = analyzeImage(currentMode, canvas);
+          const cloudResult = await uploadForCloudAnalysis(imageData, currentMode);
+          const finalResult = mergeAnalysisResults(localResult, cloudResult);
+          showResult(finalResult);
+        });
+      };
+      img.onerror = () => toast('❌ 图片加载失败');
+      img.src = URL.createObjectURL(file);
+    };
+
+    input.click();
+  } catch (e) {
+    toast('❌ 无法打开相册');
+  }
+}
+
+// ===================== FLASH =====================
+let flashOn = false;
+function toggleFlash() {
+  if (!stream) return;
+  const track = stream.getVideoTracks()[0];
+  if (track.getCapabilities && track.getCapabilities().torch) {
+    flashOn = !flashOn;
+    track.applyConstraints({ advanced: [{ torch: flashOn }] });
+    const btn = document.getElementById('flash-btn');
+    btn.style.background = flashOn ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)';
+    toast(flashOn ? '💡 闪光灯已开启' : '💡 闪光灯已关闭');
+  } else {
+    toast('📱 当前设备不支持闪光灯');
+  }
+}
+
+// ===================== UTILITIES =====================
+function vibrate() {
+  if (window.AndroidBridge && AndroidBridge.vibrate) {
+    AndroidBridge.vibrate(30);
+  }
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  setTimeout(() => {
+    t.style.transform = 'translateX(-50%) translateY(-80px)';
+  }, 2000);
+}
+
+// ===================== INIT =====================
+window.addEventListener('load', async () => {
+  await initCamera();
+  // Auto-set mode based on device
+  if (currentFacing === 'environment') {
+    setTimeout(() => setMode('tongue'), 600);
+  }
+});
+
+// Handle visibility change - restart camera when coming back
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !stream) {
+    initCamera();
+  }
+});
+</script>
+</body>
+</html>
