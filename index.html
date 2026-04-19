@@ -2,357 +2,996 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>健康助手 Pro</title>
-<!-- PWA 支持 -->
-<link rel="manifest" href="manifest.json">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="健康助手">
-<meta name="theme-color" content="#667eea">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>健康助手 Pro</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="style.css">
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: #1a2235;
+    --bg-card2: #1e2a3a;
+    --accent1: #6366f1;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --accent6: #ef4444;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
+    --border: rgba(255,255,255,0.08);
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --radius: 20px;
+    --radius-sm: 12px;
+    /* Android safe-area */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none; }
+  html, body { height:100%; background:var(--bg-primary); color:var(--text-primary); font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif; overflow:hidden; }
+
+  /* ===== 触摸反馈 ===== */
+  .ripple-effect {
+    position: relative; overflow: hidden;
+  }
+  .ripple-effect::after {
+    content:''; position:absolute; width:200%; height:200%;
+    background:rgba(255,255,255,0.15);
+    border-radius:50%; transform:scale(0);
+    animation:ripple-anim .5s ease-out; pointer-events:none;
+  }
+  @keyframes ripple-anim {
+    to { transform:scale(1); opacity:0; }
+  }
+
+  /* ===== APP CONTAINER ===== */
+  #app { width:100%; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-primary); }
+
+  /* ===== STATUS BAR SPACER ===== */
+  .status-bar { height:var(--safe-top); min-height:24px; background:var(--bg-primary); flex-shrink:0; }
+
+  /* ===== PAGES ===== */
+  .page { position:absolute; top:0; left:0; width:100%; height:calc(100vh - var(--safe-top)); top:calc(var(--safe-top)); overflow-y:auto; overflow-x:hidden; padding-bottom:calc(80px + var(--safe-bottom)); transition:transform .35s cubic-bezier(.4,0,.2,1), opacity .35s; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .page::-webkit-scrollbar { display:none; }
+  .page.hidden { transform:translateX(100%); opacity:0; pointer-events:none; }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position:fixed; bottom:0; left:0; right:0; z-index:100;
+    height:calc(70px + var(--safe-bottom));
+    padding-bottom:var(--safe-bottom);
+    background:rgba(17,24,39,0.97);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex; align-items:flex-start; justify-content:space-around;
+  }
+  .nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:8px 16px; border-radius:12px; transition:all .2s; flex:1; -webkit-tap-highlight-color:transparent; }
+  .nav-item .nav-icon { font-size:22px; transition:transform .2s; }
+  .nav-item .nav-label { font-size:10px; color:var(--text-muted); transition:color .2s; }
+  .nav-item.active .nav-icon { transform:scale(1.2); }
+  .nav-item.active .nav-label { color:var(--accent1); }
+
+  /* ===== HEADER ===== */
+  .page-header { padding:12px 20px 20px; position:relative; }
+  .header-greeting { font-size:13px; color:var(--text-secondary); margin-bottom:4px; }
+  .header-title { font-size:26px; font-weight:700; background:linear-gradient(135deg,#fff,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .header-subtitle { font-size:13px; color:var(--text-muted); margin-top:4px; }
+  .header-avatar { position:absolute; right:20px; top:10px; width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,var(--accent1),var(--accent2)); display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; box-shadow:0 4px 16px rgba(99,102,241,0.4); }
+
+  /* ===== CARDS ===== */
+  .card { background:var(--bg-card); border-radius:var(--radius); padding:20px; margin:0 16px 16px; border:1px solid var(--border); box-shadow:var(--shadow); animation:fadeUp .4s ease both; }
+  .card-title { font-size:13px; color:var(--text-secondary); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .card-title .dot { width:6px; height:6px; border-radius:50%; background:var(--accent1); }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ===== GRADIENT CARDS ===== */
+  .grad-card { border-radius:var(--radius); padding:20px; margin:0 16px 16px; position:relative; overflow:hidden; cursor:pointer; transition:transform .15s; }
+  .grad-card:active { transform:scale(0.97); opacity:.9; }
+  .grad-purple { background:linear-gradient(135deg,#4f46e5,#7c3aed); }
+  .grad-cyan { background:linear-gradient(135deg,#0891b2,#0e7490); }
+  .grad-green { background:linear-gradient(135deg,#059669,#065f46); }
+  .grad-orange { background:linear-gradient(135deg,#d97706,#b45309); }
+
+  /* ===== STATS ROW ===== */
+  .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:0 16px 16px; }
+  .stat-card { background:var(--bg-card); border-radius:var(--radius-sm); padding:16px 10px; text-align:center; border:1px solid var(--border); animation:fadeUp .4s ease both; cursor:pointer; transition:transform .15s,box-shadow .15s; }
+  .stat-card:active { transform:scale(0.95); box-shadow:0 2px 12px rgba(0,0,0,0.3); }
+  .stat-icon { font-size:24px; margin-bottom:6px; }
+  .stat-value { font-size:20px; font-weight:700; color:var(--text-primary); }
+  .stat-unit { font-size:10px; color:var(--text-muted); }
+  .stat-label { font-size:11px; color:var(--text-secondary); margin-top:4px; }
+
+  /* ===== BUTTONS ===== */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:var(--radius-sm); border:none; cursor:pointer; font-size:14px; font-weight:600; transition:all .15s; }
+  .btn:active { transform:scale(0.96); }
+  .btn-primary { background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; box-shadow:0 4px 16px rgba(99,102,241,0.4); }
+  .btn-secondary { background:var(--bg-card2); color:var(--text-primary); border:1px solid var(--border); }
+  .btn-full { width:100%; }
+  .btn-sm { padding:8px 14px; font-size:12px; border-radius:8px; }
+
+  /* ===== INPUT ===== */
+  .input-group { margin-bottom:16px; }
+  .input-label { font-size:12px; color:var(--text-secondary); margin-bottom:6px; display:block; }
+  .input-field { width:100%; background:var(--bg-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; color:var(--text-primary); font-size:14px; outline:none; transition:border-color .2s; -webkit-appearance:none; }
+  .input-field:focus { border-color:var(--accent1); }
+  .input-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  /* ===== SECTION TITLE ===== */
+  .section-title { font-size:16px; font-weight:700; color:var(--text-primary); padding:0 20px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .section-title a { font-size:12px; color:var(--accent1); font-weight:400; cursor:pointer; }
+
+  /* ===== TAGS ===== */
+  .tag { display:inline-flex; align-items:center; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+  .tag-green { background:rgba(16,185,129,0.15); color:#10b981; }
+  .tag-red { background:rgba(239,68,68,0.15); color:#ef4444; }
+  .tag-yellow { background:rgba(245,158,11,0.15); color:#f59e0b; }
+  .tag-blue { background:rgba(99,102,241,0.15); color:#818cf8; }
+
+  /* ===== PROGRESS BAR ===== */
+  .progress-wrap { background:rgba(255,255,255,0.08); border-radius:10px; height:8px; overflow:hidden; }
+  .progress-bar { height:100%; border-radius:10px; transition:width 1s ease; }
+
+  /* ===== LIST ITEM ===== */
+  .list-item { display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); cursor:pointer; transition:opacity .15s; }
+  .list-item:active { opacity:0.7; }
+  .list-item:last-child { border-bottom:none; }
+  .list-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .list-content { flex:1; }
+  .list-title { font-size:14px; font-weight:600; color:var(--text-primary); }
+  .list-sub { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .list-right { font-size:12px; color:var(--text-muted); }
+
+  /* ===== TOGGLE ===== */
+  .toggle { width:48px; height:26px; border-radius:13px; background:var(--bg-card2); border:1px solid var(--border); position:relative; cursor:pointer; transition:background .25s; flex-shrink:0; }
+  .toggle.on { background:var(--accent1); }
+  .toggle::after { content:''; width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; transition:transform .25s; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+  .toggle.on::after { transform:translateX(22px); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); z-index:200; display:flex; align-items:flex-end; opacity:0; pointer-events:none; transition:opacity .3s; }
+  .modal-overlay.show { opacity:1; pointer-events:all; }
+  .modal { background:var(--bg-secondary); border-radius:28px 28px 0 0; padding:24px 20px; padding-bottom:calc(24px + var(--safe-bottom)); width:100%; transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1); max-height:85vh; overflow-y:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .modal::-webkit-scrollbar { display:none; }
+  .modal-overlay.show .modal { transform:translateY(0); }
+  .modal-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 20px; }
+  .modal-title { font-size:18px; font-weight:700; margin-bottom:20px; }
+
+  /* ===== CHART ===== */
+  .chart-container { position:relative; height:160px; margin-top:16px; }
+  canvas { border-radius:8px; }
+
+  /* ===== AI RESULT ===== */
+  .ai-result { background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15)); border:1px solid rgba(99,102,241,0.3); border-radius:var(--radius); padding:20px; margin:0 16px 16px; }
+  .ai-score { font-size:48px; font-weight:800; text-align:center; background:linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .ai-label { text-align:center; font-size:14px; color:var(--text-secondary); margin-top:4px; }
+
+  /* ===== TOAST ===== */
+  #toast { position:fixed; top:calc(var(--safe-top) + 16px); left:50%; transform:translateX(-50%) translateY(-80px); background:rgba(30,40,60,0.97); border:1px solid var(--border); padding:10px 20px; border-radius:20px; font-size:13px; z-index:999; transition:transform .3s; white-space:nowrap; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+
+  /* ===== WATER TRACKER ===== */
+  .water-drops { display:flex; gap:8px; flex-wrap:wrap; }
+  .drop { font-size:24px; cursor:pointer; transition:transform .15s,filter .15s; filter:grayscale(0.7); }
+  .drop:active { transform:scale(1.2); }
+  .drop.filled { filter:none; transform:scale(1.1); }
+
+  /* ===== STEPS RING ===== */
+  .ring-wrap { position:relative; width:120px; height:120px; margin:0 auto; }
+  .ring-wrap svg { transform:rotate(-90deg); }
+  .ring-text { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-num { font-size:22px; font-weight:800; color:var(--text-primary); }
+  .ring-lbl { font-size:11px; color:var(--text-secondary); }
+
+  /* pulse */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .pulse { animation:pulse 2s infinite; }
+
+  /* ===== SCROLLBAR ===== */
+  * { scrollbar-width:none; }
+
+  /* ===== SYMPTOM TAGS ===== */
+  .symptom-tag { padding:6px 14px; border-radius:20px; background:var(--bg-card); border:1px solid var(--border); font-size:12px; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; -webkit-tap-highlight-color:transparent; }
+  .symptom-tag:active { transform:scale(0.95); }
+  .symptom-tag.selected { background:rgba(99,102,241,0.2); border-color:var(--accent1); color:#a5b4fc; }
+
+  /* ===== SPLASH ===== */
+  #splash {
+    position:fixed; inset:0; background:var(--bg-primary); z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity .5s;
+  }
+  #splash.hide { opacity:0; pointer-events:none; }
+  .splash-logo { font-size:64px; margin-bottom:16px; animation:float 2s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .splash-text { font-size:24px; font-weight:700; background:linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .splash-loading { margin-top:32px; width:120px; height:3px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; }
+  .splash-loading::after { content:''; display:block; width:40%; height:100%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); border-radius:2px; animation:loading 1s ease-in-out infinite; }
+  @keyframes loading { 0%{margin-left:-40%} 100%{margin-left:100%} }
+</style>
 </head>
 <body>
-<div class="app" id="app">
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <div class="splash-logo">💪</div>
+  <div class="splash-text">健康助手 Pro</div>
+  <div class="splash-loading"></div>
+</div>
 
-  <!-- ===== 启动页 ===== -->
-  <div class="splash" id="splash">
-    <div class="splash-logo">💪</div>
-    <div class="splash-title">健康助手 Pro</div>
-    <div class="splash-sub">你的私人健康管家</div>
-    <div class="splash-loader"><div class="splash-bar"></div></div>
-  </div>
-
-  <!-- ===== 主界面 ===== -->
-  <div class="main" id="main" style="display:none">
-
-    <!-- 顶部状态栏 -->
-    <div class="status-bar">
-      <span id="statusDate"></span>
-      <span class="status-score">今日评分 <b id="todayScore">--</b></span>
+<div id="app">
+  <!-- ===== HOME PAGE ===== -->
+  <div class="page" id="page-home">
+    <div class="page-header">
+      <div class="header-greeting" id="greeting">早上好 👋</div>
+      <div class="header-title">健康助手 Pro</div>
+      <div class="header-subtitle">今日健康评分 <span style="color:#10b981;font-weight:700">86分</span></div>
+      <div class="header-avatar ripple-effect" onclick="goPage('page-profile')">😊</div>
     </div>
 
-    <!-- 页面容器 -->
-    <div class="pages">
-
-      <!-- 首页 -->
-      <div class="page active" id="page-home">
-        <div class="page-scroll">
-          <!-- 用户问候 -->
-          <div class="greeting-card">
-            <div class="greeting-left">
-              <div class="greeting-title" id="greetingTitle">早上好 👋</div>
-              <div class="greeting-sub">今天也要好好照顾自己哦</div>
-            </div>
-            <div class="greeting-avatar">🧑</div>
-          </div>
-
-          <!-- 今日概览卡片 -->
-          <div class="section-title">今日健康概览</div>
-          <div class="overview-grid" id="overviewGrid"></div>
-
-          <!-- 快捷入口 -->
-          <div class="section-title">快捷功能</div>
-          <div class="quick-grid">
-            <div class="quick-item" onclick="goPage('camera')">
-              <div class="quick-icon">🤖</div>
-              <div class="quick-label">AI 检测</div>
-            </div>
-            <div class="quick-item" onclick="openRecord('weight')">
-              <div class="quick-icon">⚖️</div>
-              <div class="quick-label">记录体重</div>
-            </div>
-            <div class="quick-item" onclick="quickWater()">
-              <div class="quick-icon">💧</div>
-              <div class="quick-label">喝水 +250ml</div>
-            </div>
-            <div class="quick-item" onclick="openRecord('exercise')">
-              <div class="quick-icon">🏃</div>
-              <div class="quick-label">记录运动</div>
-            </div>
-            <div class="quick-item" onclick="openRecord('sleep')">
-              <div class="quick-icon">😴</div>
-              <div class="quick-label">记录睡眠</div>
-            </div>
-            <div class="quick-item" onclick="openRecord('diet')">
-              <div class="quick-icon">🍎</div>
-              <div class="quick-label">记录饮食</div>
-            </div>
-          </div>
-
-          <!-- AI 检测入口 Banner -->
-          <div class="ai-banner" onclick="goPage('camera')">
-            <div class="ai-banner-text">
-              <div class="ai-banner-title">AI 健康拍照检测</div>
-              <div class="ai-banner-sub">面色分析 · 舌诊 · 心率 · 皮肤</div>
-            </div>
-            <div class="ai-banner-icon">📷✨</div>
-          </div>
-
-          <!-- 近期记录 -->
-          <div class="section-title">近期动态</div>
-          <div id="recentList" class="recent-list"></div>
-
-          <div style="height:20px"></div>
+    <!-- BMI + 心率 -->
+    <div class="grad-card grad-purple ripple-effect" onclick="showModal('modal-health-report'); vibrate()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:12px;opacity:0.8;margin-bottom:6px">📊 健康报告</div>
+          <div style="font-size:32px;font-weight:800">BMI 22.4</div>
+          <div style="font-size:12px;opacity:0.8;margin-top:4px">正常范围 · 体重 68kg</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;opacity:0.8;margin-bottom:6px">❤️ 心率</div>
+          <div style="font-size:32px;font-weight:800">72 <span style="font-size:14px">bpm</span></div>
+          <div class="tag tag-green" style="margin-top:6px">正常</div>
         </div>
       </div>
+      <div style="margin-top:16px;font-size:12px;opacity:0.7">点击查看详细健康报告 →</div>
+    </div>
 
-      <!-- AI 拍照检测页 -->
-      <div class="page" id="page-camera">
-        <div class="page-header">
-          <span class="back-btn" onclick="goPage('home')">←</span>
-          <span class="page-title">AI 健康检测</span>
-          <span></span>
-        </div>
-
-        <!-- 模式选择 -->
-        <div class="mode-bar">
-          <button class="mode-btn active" data-mode="face" onclick="setMode(this,'face')">😊 面色</button>
-          <button class="mode-btn" data-mode="tongue" onclick="setMode(this,'tongue')">👅 舌诊</button>
-          <button class="mode-btn" data-mode="heartrate" onclick="setMode(this,'heartrate')">❤️ 心率</button>
-          <button class="mode-btn" data-mode="skin" onclick="setMode(this,'skin')">🔍 皮肤</button>
-        </div>
-
-        <!-- 摄像头 -->
-        <div class="cam-box">
-          <video id="camVideo" autoplay playsinline muted></video>
-          <canvas id="camCanvas"></canvas>
-          <div class="cam-frame" id="camFrame"></div>
-          <div class="cam-scan" id="camScan"></div>
-          <div class="cam-live">● LIVE</div>
-          <button class="cam-flip" onclick="flipCam()">🔄</button>
-        </div>
-
-        <!-- 心率数值 -->
-        <div class="hr-panel" id="hrPanel">
-          <div class="hr-num" id="hrNum">--</div>
-          <div class="hr-unit">次/分钟 ❤️</div>
-        </div>
-
-        <!-- 控制 -->
-        <div class="cam-ctrl">
-          <button class="shoot-btn" id="shootBtn" onclick="shoot()">📸</button>
-          <button class="hr-start-btn" id="hrStartBtn" onclick="toggleHR()" style="display:none">开始测量</button>
-        </div>
-        <div class="cam-hint" id="camHint">对准面部，点击拍照分析</div>
+    <!-- 步数 + 喝水 + 睡眠 -->
+    <div class="stats-row">
+      <div class="stat-card ripple-effect" onclick="goPage('page-steps'); vibrate()" style="animation-delay:.05s">
+        <div class="stat-icon">🚶</div><div class="stat-value">8,234</div><div class="stat-unit">步</div><div class="stat-label">今日步数</div>
       </div>
+      <div class="stat-card ripple-effect" onclick="showModal('modal-water'); vibrate()" style="animation-delay:.1s">
+        <div class="stat-icon">💧</div><div class="stat-value">1,400</div><div class="stat-unit">ml</div><div class="stat-label">饮水量</div>
+      </div>
+      <div class="stat-card ripple-effect" onclick="goPage('page-data'); vibrate()" style="animation-delay:.15s">
+        <div class="stat-icon">😴</div><div class="stat-value">7.5</div><div class="stat-unit">h</div><div class="stat-label">睡眠时长</div>
+      </div>
+    </div>
 
-      <!-- 检测结果页 -->
-      <div class="page" id="page-result">
-        <div class="page-header">
-          <span class="back-btn" onclick="goPage('camera')">←</span>
-          <span class="page-title" id="resultPageTitle">检测结果</span>
-          <span></span>
-        </div>
-        <div class="page-scroll">
-          <!-- 评分环 -->
-          <div class="score-wrap">
-            <svg viewBox="0 0 120 120" width="120" height="120" class="score-ring">
-              <defs>
-                <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#6c63ff"/>
-                  <stop offset="100%" stop-color="#48cfad"/>
-                </linearGradient>
-              </defs>
-              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10"/>
-              <circle id="ringArc" cx="60" cy="60" r="50" fill="none" stroke="url(#rg)"
-                stroke-width="10" stroke-linecap="round"
-                stroke-dasharray="314.16" stroke-dashoffset="314.16"
-                transform="rotate(-90 60 60)"/>
-            </svg>
-            <div class="score-center">
-              <div class="score-big" id="scoreBig">0</div>
-              <div class="score-lbl">健康评分</div>
-            </div>
-          </div>
-          <div class="score-desc" id="scoreDesc"></div>
+    <!-- 血压血糖 -->
+    <div class="section-title">血压 & 血糖 <a onclick="goPage('page-data')">查看趋势 →</a></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 16px 16px;">
+      <div class="grad-card grad-cyan" style="margin:0;padding:16px" onclick="goPage('page-data')">
+        <div style="font-size:11px;opacity:0.8;margin-bottom:6px">🩸 血压</div>
+        <div style="font-size:22px;font-weight:800">118/76</div>
+        <div style="font-size:10px;opacity:0.7;margin-top:4px">mmHg · 正常</div>
+      </div>
+      <div class="grad-card grad-green" style="margin:0;padding:16px" onclick="goPage('page-data')">
+        <div style="font-size:11px;opacity:0.8;margin-bottom:6px">🧪 血糖</div>
+        <div style="font-size:22px;font-weight:800">5.2</div>
+        <div style="font-size:10px;opacity:0.7;margin-top:4px">mmol/L · 正常</div>
+      </div>
+    </div>
 
-          <!-- 指标 -->
-          <div class="result-card">
-            <div class="card-title" id="indicatorTitle">📊 详细指标</div>
-            <div id="indicatorBars"></div>
-          </div>
+    <!-- 今日用药 -->
+    <div class="section-title">今日用药 <a onclick="goPage('page-meds')">管理 →</a></div>
+    <div class="card" style="padding:16px 20px;">
+      <div class="list-item ripple-effect" onclick="toggleMed(this)">
+        <div class="list-icon" style="background:rgba(99,102,241,0.15)">💊</div>
+        <div class="list-content"><div class="list-title">维生素C</div><div class="list-sub">早餐后 · 1片</div></div>
+        <div class="tag tag-green">已服</div>
+      </div>
+      <div class="list-item ripple-effect" onclick="toggleMed(this)">
+        <div class="list-icon" style="background:rgba(245,158,11,0.15)">🐟</div>
+        <div class="list-content"><div class="list-title">深海鱼油</div><div class="list-sub">午餐后 · 2粒</div></div>
+        <div class="tag tag-yellow">待服</div>
+      </div>
+      <div class="list-item ripple-effect" onclick="toggleMed(this)">
+        <div class="list-icon" style="background:rgba(16,185,129,0.15)">🦴</div>
+        <div class="list-content"><div class="list-title">钙+D3</div><div class="list-sub">晚餐后 · 1片</div></div>
+        <div class="tag tag-yellow">待服</div>
+      </div>
+    </div>
 
-          <!-- 分析图 -->
-          <div class="result-card" id="analysePhotoCard" style="display:none">
-            <div class="card-title">📷 分析图像</div>
-            <img id="analysePhoto" style="width:100%;border-radius:10px;margin-top:8px" alt="">
-          </div>
-
-          <!-- 建议 -->
-          <div class="result-card">
-            <div class="card-title">💡 健康建议</div>
-            <div id="suggestionList"></div>
-          </div>
-
-          <div style="padding:16px 0 30px;text-align:center">
-            <button class="save-btn" onclick="saveAnalysis()">💾 保存记录</button>
-          </div>
+    <!-- AI提示 -->
+    <div class="section-title">AI 健康提示</div>
+    <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(6,182,212,0.1));border-color:rgba(16,185,129,0.2)">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:28px">🤖</div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#10b981">今日健康建议</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">您今日步数已达目标82%，再走1,766步即可完成！血压血糖正常，建议下午3点后补充500ml水分。</div>
         </div>
       </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="goPage('page-ai'); vibrate()">🔍 开始AI检测</button>
+    </div>
 
-      <!-- 数据记录页 -->
-      <div class="page" id="page-record">
-        <div class="page-header">
-          <span class="back-btn" onclick="goPage('home')">←</span>
-          <span class="page-title">健康数据</span>
-          <span></span>
-        </div>
-        <div class="record-tabs">
-          <button class="rtab active" onclick="switchRTab(this,'weight')">⚖️ 体重</button>
-          <button class="rtab" onclick="switchRTab(this,'exercise')">🏃 运动</button>
-          <button class="rtab" onclick="switchRTab(this,'water')">💧 喝水</button>
-          <button class="rtab" onclick="switchRTab(this,'sleep')">😴 睡眠</button>
-          <button class="rtab" onclick="switchRTab(this,'diet')">🍎 饮食</button>
-        </div>
-        <div class="page-scroll" style="flex:1">
-          <!-- 体重 -->
-          <div class="rtab-content active" id="rt-weight">
-            <div class="form-card">
-              <div class="form-row">
-                <div class="form-group"><label>体重 (kg)</label><input type="number" id="f-weight" placeholder="如：65.5" step="0.1"></div>
-                <div class="form-group"><label>身高 (cm)</label><input type="number" id="f-height" placeholder="如：170"></div>
-              </div>
-              <button class="add-btn" onclick="addRecord('weight')">+ 记录体重</button>
-            </div>
-            <div class="data-list" id="list-weight"></div>
-          </div>
-          <!-- 运动 -->
-          <div class="rtab-content" id="rt-exercise">
-            <div class="form-card">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>运动类型</label>
-                  <select id="f-extype">
-                    <option>🏃 跑步</option><option>🚴 骑车</option><option>🏊 游泳</option>
-                    <option>🏋️ 健身</option><option>🧘 瑜伽</option><option>🚶 散步</option><option>⚽ 球类</option>
-                  </select>
-                </div>
-                <div class="form-group"><label>时长(分钟)</label><input type="number" id="f-exdur" placeholder="30"></div>
-              </div>
-              <div class="form-group"><label>消耗热量(卡)</label><input type="number" id="f-excal" placeholder="200"></div>
-              <button class="add-btn" onclick="addRecord('exercise')">+ 记录运动</button>
-            </div>
-            <div class="data-list" id="list-exercise"></div>
-          </div>
-          <!-- 喝水 -->
-          <div class="rtab-content" id="rt-water">
-            <div class="form-card">
-              <div class="form-group"><label>喝水量 (ml)</label><input type="number" id="f-water" placeholder="250"></div>
-              <div class="quick-water">
-                <button onclick="quickAddWater(150)">+150ml</button>
-                <button onclick="quickAddWater(250)">+250ml</button>
-                <button onclick="quickAddWater(500)">+500ml</button>
-                <button onclick="quickAddWater(1000)">+1L</button>
-              </div>
-              <button class="add-btn" onclick="addRecord('water')">+ 记录喝水</button>
-            </div>
-            <div class="water-today">
-              今日已喝：<span id="waterToday">0</span> ml
-              <div class="water-bar-track"><div class="water-bar-fill" id="waterBarFill"></div></div>
-              <div style="font-size:11px;color:#666;margin-top:4px">目标：2000ml</div>
-            </div>
-            <div class="data-list" id="list-water"></div>
-          </div>
-          <!-- 睡眠 -->
-          <div class="rtab-content" id="rt-sleep">
-            <div class="form-card">
-              <div class="form-row">
-                <div class="form-group"><label>睡眠时长(小时)</label><input type="number" id="f-sleep" placeholder="7.5" step="0.5"></div>
-                <div class="form-group">
-                  <label>睡眠质量</label>
-                  <select id="f-sleepq">
-                    <option>很差😵</option><option>差😐</option><option>中等😊</option><option>好😄</option><option>极好🌟</option>
-                  </select>
-                </div>
-              </div>
-              <button class="add-btn" onclick="addRecord('sleep')">+ 记录睡眠</button>
-            </div>
-            <div class="data-list" id="list-sleep"></div>
-          </div>
-          <!-- 饮食 -->
-          <div class="rtab-content" id="rt-diet">
-            <div class="form-card">
-              <div class="form-row">
-                <div class="form-group"><label>食物名称</label><input type="text" id="f-food" placeholder="红烧肉"></div>
-                <div class="form-group"><label>热量(卡)</label><input type="number" id="f-fcal" placeholder="350"></div>
-              </div>
-              <div class="form-group">
-                <label>用餐时间</label>
-                <select id="f-meal">
-                  <option>🌅 早餐</option><option>☀️ 午餐</option><option>🌙 晚餐</option><option>🍿 零食</option>
-                </select>
-              </div>
-              <button class="add-btn" onclick="addRecord('diet')">+ 记录饮食</button>
-            </div>
-            <div class="data-list" id="list-diet"></div>
-          </div>
-        </div>
+    <!-- 提醒 -->
+    <div class="section-title">今日提醒</div>
+    <div class="card">
+      <div class="list-item">
+        <div class="list-icon" style="background:rgba(6,182,212,0.15)">💧</div>
+        <div class="list-content"><div class="list-title">补水提醒</div><div class="list-sub">距上次饮水 2小时</div></div>
+        <span class="tag tag-blue">下午3:00</span>
       </div>
-
-      <!-- 统计页 -->
-      <div class="page" id="page-stats">
-        <div class="page-header">
-          <span></span>
-          <span class="page-title">数据统计</span>
-          <span></span>
-        </div>
-        <div class="page-scroll">
-          <div class="stats-card">
-            <div class="card-title">📈 近7天体重趋势</div>
-            <div class="chart-box"><canvas id="chartWeight"></canvas></div>
-          </div>
-          <div class="stats-card">
-            <div class="card-title">💧 近7天饮水量</div>
-            <div class="chart-box"><canvas id="chartWater"></canvas></div>
-          </div>
-          <div class="stats-card">
-            <div class="card-title">🏃 近7天运动分钟</div>
-            <div class="chart-box"><canvas id="chartExercise"></canvas></div>
-          </div>
-          <div class="stats-card">
-            <div class="card-title">😴 近7天睡眠时长</div>
-            <div class="chart-box"><canvas id="chartSleep"></canvas></div>
-          </div>
-          <div style="height:20px"></div>
-        </div>
+      <div class="list-item">
+        <div class="list-icon" style="background:rgba(245,158,11,0.15)">🏃</div>
+        <div class="list-content"><div class="list-title">运动提醒</div><div class="list-sub">今日运动量不足</div></div>
+        <span class="tag tag-yellow">下午5:00</span>
       </div>
-
-    </div><!-- /pages -->
-
-    <!-- 底部导航 -->
-    <nav class="bottom-nav">
-      <button class="nav-item active" onclick="goPage('home')">
-        <span class="nav-ico">🏠</span><span class="nav-lbl">首页</span>
-      </button>
-      <button class="nav-item" onclick="goPage('camera')">
-        <span class="nav-ico">📷</span><span class="nav-lbl">AI检测</span>
-      </button>
-      <button class="nav-item" onclick="goPage('record')">
-        <span class="nav-ico">📝</span><span class="nav-lbl">记录</span>
-      </button>
-      <button class="nav-item" onclick="goPage('stats')">
-        <span class="nav-ico">📊</span><span class="nav-lbl">统计</span>
-      </button>
-    </nav>
+      <div class="list-item">
+        <div class="list-icon" style="background:rgba(139,92,246,0.15)">📋</div>
+        <div class="list-content"><div class="list-title">每日健康报告</div><div class="list-sub">汇总今日健康数据</div></div>
+        <span class="tag tag-blue">晚上9:00</span>
+      </div>
+    </div>
   </div>
 
-  <!-- 弹窗遮罩 -->
-  <div class="overlay" id="overlay" onclick="closeOverlay()"></div>
-  <!-- 提示弹窗 -->
-  <div class="toast" id="toast"></div>
-  <!-- 加载层 -->
-  <div class="ai-loading" id="aiLoading">
-    <div class="ai-spin"></div>
-    <div class="ai-loading-text" id="aiLoadingText">AI 分析中...</div>
-    <div class="ai-loading-sub">请稍候</div>
+  <!-- ===== DATA PAGE ===== -->
+  <div class="page hidden" id="page-data">
+    <div class="page-header">
+      <div class="header-greeting">数据中心</div>
+      <div class="header-title">健康趋势</div>
+    </div>
+    <div class="section-title">30天步数趋势</div>
+    <div class="card"><div class="chart-container"><canvas id="stepsChart" style="width:100%;height:160px"></canvas></div></div>
+
+    <div class="section-title">血压趋势 <a onclick="showModal('modal-bp-add'); vibrate()">+ 记录</a></div>
+    <div class="card">
+      <div style="display:flex;gap:16px;margin-bottom:12px">
+        <div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--text-muted)">收缩压均值</div><div style="font-size:22px;font-weight:800;color:#6366f1">117</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--text-muted)">舒张压均值</div><div style="font-size:22px;font-weight:800;color:#06b6d4">75</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--text-muted)">评估</div><div style="font-size:14px;font-weight:700;color:#10b981;margin-top:6px">正常</div></div>
+      </div>
+      <div class="chart-container" style="height:120px"><canvas id="bpChart" style="width:100%;height:120px"></canvas></div>
+      <div style="margin-top:12px">
+        <div class="list-item"><div style="width:8px;height:8px;border-radius:50%;background:#6366f1;flex-shrink:0"></div><div class="list-content"><div class="list-title">今日 118/76 mmHg</div><div class="list-sub">2026-04-20 08:30</div></div><span class="tag tag-green">正常</span></div>
+        <div class="list-item"><div style="width:8px;height:8px;border-radius:50%;background:#6366f1;flex-shrink:0"></div><div class="list-content"><div class="list-title">昨日 122/78 mmHg</div><div class="list-sub">2026-04-19 08:15</div></div><span class="tag tag-green">正常</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">血糖记录 <a onclick="showModal('modal-glucose-add'); vibrate()">+ 记录</a></div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div class="grad-card grad-green" style="flex:1;margin:0;padding:14px;text-align:center">
+          <div style="font-size:11px;opacity:0.8">空腹血糖</div><div style="font-size:24px;font-weight:800">5.2</div><div style="font-size:10px;opacity:0.7">mmol/L</div>
+        </div>
+        <div class="grad-card grad-cyan" style="flex:1;margin:0;padding:14px;text-align:center">
+          <div style="font-size:11px;opacity:0.8">餐后2h</div><div style="font-size:24px;font-weight:800">7.1</div><div style="font-size:10px;opacity:0.7">mmol/L</div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:100px"><canvas id="glucoseChart" style="width:100%;height:100px"></canvas></div>
+    </div>
+
+    <div class="section-title">BMI趋势</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <div><div style="font-size:36px;font-weight:800;color:var(--accent1)">22.4</div><div style="font-size:12px;color:var(--text-secondary)">当前BMI</div></div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">BMI分布</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:60px;color:var(--text-muted)">偏瘦 &lt;18.5</div><div style="flex:1;background:rgba(99,102,241,0.2);border-radius:4px;height:6px"><div style="width:25%;background:#6366f1;height:100%;border-radius:4px"></div></div></div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:60px;color:#10b981">正常 ✓</div><div style="flex:1;background:rgba(16,185,129,0.2);border-radius:4px;height:6px"><div style="width:75%;background:#10b981;height:100%;border-radius:4px"></div></div></div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px"><div style="width:60px;color:var(--text-muted)">超重 &gt;24</div><div style="flex:1;background:rgba(245,158,11,0.2);border-radius:4px;height:6px"><div style="width:30%;background:#f59e0b;height:100%;border-radius:4px"></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container" style="height:100px"><canvas id="bmiChart" style="width:100%;height:100px"></canvas></div>
+    </div>
+
+    <div class="section-title">睡眠分析</div>
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div style="text-align:center;flex:1"><div style="font-size:11px;color:var(--text-muted)">平均时长</div><div style="font-size:20px;font-weight:700;color:#8b5cf6">7.2h</div></div>
+        <div style="text-align:center;flex:1"><div style="font-size:11px;color:var(--text-muted)">深睡比例</div><div style="font-size:20px;font-weight:700;color:#6366f1">31%</div></div>
+        <div style="text-align:center;flex:1"><div style="font-size:11px;color:var(--text-muted)">睡眠评分</div><div style="font-size:20px;font-weight:700;color:#10b981">82</div></div>
+      </div>
+      <div class="chart-container" style="height:100px"><canvas id="sleepChart" style="width:100%;height:100px"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ===== AI DETECT PAGE ===== -->
+  <div class="page hidden" id="page-ai">
+    <div class="page-header">
+      <div class="header-greeting">智能分析</div>
+      <div class="header-title">AI 健康检测</div>
+    </div>
+    <div class="card" style="background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.1));border-color:rgba(99,102,241,0.3)">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+        <div style="font-size:36px" class="pulse">🤖</div>
+        <div><div style="font-size:16px;font-weight:700">AI 症状分析</div><div style="font-size:12px;color:var(--text-secondary)">基于您的历史数据智能评估</div></div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">描述您的症状</label>
+        <textarea class="input-field" id="symptomInput" rows="3" placeholder="例如：头痛、睡眠质量差、容易疲劳..."></textarea>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">快捷症状选择：</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="symptom-tag" onclick="addSymptom(this)">😴 疲劳</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">🤕 头痛</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">😰 头晕</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">💔 胸闷</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">🤢 恶心</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">🦵 关节痛</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">👁️ 视力模糊</span>
+          <span class="symptom-tag" onclick="addSymptom(this)">😤 气短</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="runAIDetect()">🔍 开始AI分析</button>
+      <button class="btn btn-secondary btn-full" style="margin-top:10px" onclick="openCamera()">📷 AI健康拍照检测</button>
+    </div>
+
+    <div id="aiResult" style="display:none">
+      <div class="ai-result">
+        <div class="ai-score" id="aiScore">86</div>
+        <div class="ai-label">综合健康评分</div>
+        <div style="margin-top:20px;display:grid;gap:12px" id="aiDetails"></div>
+      </div>
+      <div class="section-title">AI 建议</div>
+      <div class="card" id="aiAdvice"></div>
+      <div class="section-title">历史对比</div>
+      <div class="card">
+        <div class="chart-container" style="height:120px"><canvas id="aiHistoryChart" style="width:100%;height:120px"></canvas></div>
+        <div style="display:flex;justify-content:space-around;margin-top:12px">
+          <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">上周均分</div><div style="font-size:18px;font-weight:700;color:#f59e0b">78</div></div>
+          <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">本周均分</div><div style="font-size:18px;font-weight:700;color:#10b981">84</div></div>
+          <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">趋势</div><div style="font-size:18px;font-weight:700;color:#10b981">↑7.7%</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MEDS PAGE ===== -->
+  <div class="page hidden" id="page-meds">
+    <div class="page-header">
+      <div class="header-greeting">用药管理</div>
+      <div class="header-title">用药记录</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 16px 16px">
+      <div class="stat-card" style="animation-delay:.05s"><div class="stat-icon">✅</div><div class="stat-value">1</div><div class="stat-label">已服药</div></div>
+      <div class="stat-card" style="animation-delay:.1s"><div class="stat-icon">⏳</div><div class="stat-value">2</div><div class="stat-label">待服药</div></div>
+      <div class="stat-card" style="animation-delay:.15s"><div class="stat-icon">📅</div><div class="stat-value">7</div><div class="stat-label">连续天数</div></div>
+    </div>
+    <div class="section-title">今日用药计划 <a onclick="showModal('modal-add-med'); vibrate()">+ 添加</a></div>
+    <div class="card" id="medList">
+      <div class="list-item ripple-effect"><div class="list-icon" style="background:rgba(99,102,241,0.15)">💊</div><div class="list-content"><div class="list-title">维生素C 500mg</div><div class="list-sub">早餐后 · 1片 · 剩余28片</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="tag tag-green">已服</div><div style="font-size:10px;color:var(--text-muted)">08:15</div></div></div>
+      <div class="list-item ripple-effect"><div class="list-icon" style="background:rgba(245,158,11,0.15)">🐟</div><div class="list-content"><div class="list-title">深海鱼油 1000mg</div><div class="list-sub">午餐后 · 2粒 · 剩余60粒</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="tag tag-yellow">待服</div><div style="font-size:10px;color:var(--text-muted)">12:00</div></div></div>
+      <div class="list-item ripple-effect"><div class="list-icon" style="background:rgba(16,185,129,0.15)">🦴</div><div class="list-content"><div class="list-title">钙+D3 复合片</div><div class="list-sub">晚餐后 · 1片 · 剩余45片</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="tag tag-yellow">待服</div><div style="font-size:10px;color:var(--text-muted)">18:00</div></div></div>
+    </div>
+    <div class="section-title">本周服药记录</div>
+    <div class="card">
+      <div class="chart-container" style="height:100px"><canvas id="medChart" style="width:100%;height:100px"></canvas></div>
+      <div style="display:flex;justify-content:space-around;margin-top:16px">
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">服药率</div><div style="font-size:20px;font-weight:700;color:#10b981">92%</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">连续天数</div><div style="font-size:20px;font-weight:700;color:#6366f1">7天</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">遗漏次数</div><div style="font-size:20px;font-weight:700;color:#f59e0b">2次</div></div>
+      </div>
+    </div>
+    <div class="section-title">近期服药历史</div>
+    <div class="card">
+      <div class="list-item"><div class="list-icon" style="background:rgba(16,185,129,0.15)">📅</div><div class="list-content"><div class="list-title">2026-04-19</div><div class="list-sub">全部3种药物已服用</div></div><span class="tag tag-green">100%</span></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(245,158,11,0.15)">📅</div><div class="list-content"><div class="list-title">2026-04-18</div><div class="list-sub">2/3种药物已服用</div></div><span class="tag tag-yellow">67%</span></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(16,185,129,0.15)">📅</div><div class="list-content"><div class="list-title">2026-04-17</div><div class="list-sub">全部3种药物已服用</div></div><span class="tag tag-green">100%</span></div>
+    </div>
+  </div>
+
+  <!-- ===== STEPS PAGE ===== -->
+  <div class="page hidden" id="page-steps">
+    <div class="page-header">
+      <div class="header-greeting">运动数据</div>
+      <div class="header-title">步数统计</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">今日进度</div>
+      <div class="ring-wrap">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="url(#stepGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="56"/>
+          <defs><linearGradient id="stepGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#6366f1"/><stop offset="100%" style="stop-color:#06b6d4"/></linearGradient></defs>
+        </svg>
+        <div class="ring-text"><div class="ring-num">8,234</div><div class="ring-lbl">/ 10,000步</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-around;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">🔥 卡路里</div><div style="font-size:18px;font-weight:700">324</div><div style="font-size:10px;color:var(--text-muted)">kcal</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">📏 距离</div><div style="font-size:18px;font-weight:700">5.8</div><div style="font-size:10px;color:var(--text-muted)">km</div></div>
+        <div style="text-align:center"><div style="font-size:11px;color:var(--text-muted)">⏱️ 时间</div><div style="font-size:18px;font-weight:700">68</div><div style="font-size:10px;color:var(--text-muted)">分钟</div></div>
+      </div>
+    </div>
+    <div class="section-title">30天步数趋势</div>
+    <div class="card"><div class="chart-container"><canvas id="stepsChart2" style="width:100%;height:160px"></canvas></div></div>
+    <div class="section-title">本周每日步数</div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周一</span><span style="color:#10b981">9,812</span></div><div class="progress-wrap"><div class="progress-bar" style="width:98%;background:linear-gradient(90deg,#6366f1,#06b6d4)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周二</span><span style="color:#10b981">8,234</span></div><div class="progress-wrap"><div class="progress-bar" style="width:82%;background:linear-gradient(90deg,#6366f1,#06b6d4)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周三</span><span style="color:#f59e0b">6,543</span></div><div class="progress-wrap"><div class="progress-bar" style="width:65%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周四</span><span style="color:#10b981">11,200</span></div><div class="progress-wrap"><div class="progress-bar" style="width:100%;background:linear-gradient(90deg,#10b981,#06b6d4)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周五</span><span style="color:#10b981">9,456</span></div><div class="progress-wrap"><div class="progress-bar" style="width:94%;background:linear-gradient(90deg,#6366f1,#06b6d4)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>周六</span><span style="color:#f59e0b">4,200</span></div><div class="progress-wrap"><div class="progress-bar" style="width:42%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#10b981">今日</span><span style="color:#6366f1">8,234</span></div><div class="progress-wrap"><div class="progress-bar" style="width:82%;background:linear-gradient(90deg,#6366f1,#8b5cf6)"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROFILE PAGE ===== -->
+  <div class="page hidden" id="page-profile">
+    <div style="padding:12px 20px 20px;text-align:center">
+      <div style="position:relative;display:inline-block;margin-bottom:16px" onclick="showModal('modal-avatar'); vibrate()">
+        <div id="profileAvatar" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:44px;margin:0 auto;box-shadow:0 8px 32px rgba(99,102,241,0.4);cursor:pointer">😊</div>
+        <div style="position:absolute;bottom:2px;right:2px;width:26px;height:26px;background:var(--accent1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid var(--bg-primary)">✏️</div>
+      </div>
+      <div id="profileName" style="font-size:22px;font-weight:700">健康用户</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">加入 · 2026年1月</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:16px">
+        <span class="tag tag-green">健康达人</span><span class="tag tag-blue">连续7天</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 16px 16px">
+      <div class="stat-card"><div class="stat-icon">📏</div><div class="stat-value">175</div><div class="stat-unit">cm</div><div class="stat-label">身高</div></div>
+      <div class="stat-card"><div class="stat-icon">⚖️</div><div class="stat-value">68</div><div class="stat-unit">kg</div><div class="stat-label">体重</div></div>
+      <div class="stat-card"><div class="stat-icon">🎂</div><div class="stat-value">28</div><div class="stat-unit">岁</div><div class="stat-label">年龄</div></div>
+    </div>
+    <div class="section-title">个人资料</div>
+    <div class="card">
+      <div class="input-group"><label class="input-label">昵称</label><input class="input-field" id="nameInput" value="健康用户" placeholder="请输入昵称"></div>
+      <div class="input-row">
+        <div class="input-group"><label class="input-label">身高 (cm)</label><input class="input-field" id="heightInput" value="175" type="number"></div>
+        <div class="input-group"><label class="input-label">体重 (kg)</label><input class="input-field" id="weightInput" value="68" type="number"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="input-label">年龄</label><input class="input-field" id="ageInput" value="28" type="number"></div>
+        <div class="input-group"><label class="input-label">性别</label><select class="input-field" id="genderInput" style="appearance:none;-webkit-appearance:none"><option>男</option><option>女</option></select></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="saveProfile()">💾 保存资料</button>
+    </div>
+    <div class="section-title">提醒设置</div>
+    <div class="card">
+      <div class="list-item"><div class="list-icon" style="background:rgba(6,182,212,0.15)">💧</div><div class="list-content"><div class="list-title">喝水提醒</div><div class="list-sub">每2小时提醒一次</div></div><div class="toggle on" onclick="this.classList.toggle('on'); vibrate()"></div></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(245,158,11,0.15)">🏃</div><div class="list-content"><div class="list-title">运动提醒</div><div class="list-sub">下午5:00</div></div><div class="toggle on" onclick="this.classList.toggle('on'); vibrate()"></div></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(99,102,241,0.15)">💊</div><div class="list-content"><div class="list-title">用药提醒</div><div class="list-sub">按计划时间提醒</div></div><div class="toggle on" onclick="this.classList.toggle('on'); vibrate()"></div></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(139,92,246,0.15)">📋</div><div class="list-content"><div class="list-title">每日健康报告</div><div class="list-sub">晚上9:00推送</div></div><div class="toggle on" onclick="this.classList.toggle('on'); vibrate()"></div></div>
+    </div>
+    <div class="section-title">关于应用</div>
+    <div class="card">
+      <div class="list-item"><div class="list-icon" style="background:rgba(99,102,241,0.15)">💡</div><div class="list-content"><div class="list-title">版本信息</div><div class="list-sub">健康助手 Pro v3.0</div></div><span style="font-size:12px;color:var(--text-muted)">最新版</span></div>
+      <div class="list-item"><div class="list-icon" style="background:rgba(16,185,129,0.15)">🛡️</div><div class="list-content"><div class="list-title">隐私保护</div><div class="list-sub">数据仅存储在本地</div></div></div>
+      <div class="list-item ripple-effect"><div class="list-icon" style="background:rgba(239,68,68,0.15)">🗑️</div><div class="list-content"><div class="list-title">清除数据</div><div class="list-sub">删除所有本地数据</div></div></div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM NAV ===== -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="switchPage('page-home',this)"><div class="nav-icon">🏠</div><div class="nav-label">首页</div></div>
+    <div class="nav-item" onclick="switchPage('page-data',this)"><div class="nav-icon">📊</div><div class="nav-label">数据</div></div>
+    <div class="nav-item" onclick="switchPage('page-ai',this)"><div class="nav-icon">🤖</div><div class="nav-label">AI检测</div></div>
+    <div class="nav-item" onclick="switchPage('page-meds',this)"><div class="nav-icon">💊</div><div class="nav-label">用药</div></div>
+    <div class="nav-item" onclick="switchPage('page-profile',this)"><div class="nav-icon">👤</div><div class="nav-label">我的</div></div>
+  </nav>
+</div>
+
+<!-- ===== MODALS ===== -->
+<div class="modal-overlay" id="modal-health-report" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📊 综合健康报告</div>
+    <div class="ai-result" style="margin:0 0 20px">
+      <div class="ai-score">86</div><div class="ai-label">综合健康评分 · 优秀</div>
+    </div>
+    <div style="display:grid;gap:12px">
+      <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-card);border-radius:12px"><span style="font-size:13px">❤️ 心率</span><span style="color:#10b981;font-weight:700">72 bpm 正常</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-card);border-radius:12px"><span style="font-size:13px">🩸 血压</span><span style="color:#10b981;font-weight:700">118/76 正常</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-card);border-radius:12px"><span style="font-size:13px">🧪 血糖</span><span style="color:#10b981;font-weight:700">5.2 mmol/L 正常</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-card);border-radius:12px"><span style="font-size:13px">📏 BMI</span><span style="color:#10b981;font-weight:700">22.4 正常体重</span></div>
+      <div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-card);border-radius:12px"><span style="font-size:13px">🚶 步数</span><span style="color:#6366f1;font-weight:700">8,234 / 10,000</span></div>
+    </div>
+    <div style="margin-top:16px;padding:14px;background:rgba(16,185,129,0.1);border-radius:12px;font-size:13px;color:var(--text-secondary);line-height:1.6">💡 您的整体健康状况良好。建议继续保持规律运动，注意补充水分，保证充足睡眠。</div>
   </div>
 </div>
 
-<script src="app.js"></script>
+<div class="modal-overlay" id="modal-water" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💧 今日饮水记录</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:42px;font-weight:800;color:#06b6d4">1,400 <span style="font-size:18px">ml</span></div>
+      <div style="font-size:13px;color:var(--text-secondary)">目标 2,000ml · 完成70%</div>
+      <div class="progress-wrap" style="margin-top:12px"><div class="progress-bar" style="width:70%;background:linear-gradient(90deg,#06b6d4,#0891b2)"></div></div>
+    </div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">点击水滴记录饮水（每滴 = 200ml）</div>
+    <div class="water-drops" id="waterDrops">
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop filled ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop ripple-effect" onclick="toggleDrop(this)">💧</span>
+      <span class="drop ripple-effect" onclick="toggleDrop(this)">💧</span>
+    </div>
+    <div style="margin-top:20px;font-size:13px;color:var(--text-secondary)">今日记录：08:00 · 200ml &nbsp;|&nbsp; 10:30 · 400ml &nbsp;|&nbsp; 14:00 · 300ml</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-bp-add" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🩸 记录血压</div>
+    <div class="input-row">
+      <div class="input-group"><label class="input-label">收缩压 (高压)</label><input class="input-field" id="bpHigh" type="number" placeholder="120" value="118"></div>
+      <div class="input-group"><label class="input-label">舒张压 (低压)</label><input class="input-field" id="bpLow" type="number" placeholder="80" value="76"></div>
+    </div>
+    <div class="input-group"><label class="input-label">心率 (bpm)</label><input class="input-field" id="bpHr" type="number" placeholder="72" value="72"></div>
+    <button class="btn btn-primary btn-full" onclick="saveBP()">💾 保存记录</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-glucose-add" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🧪 记录血糖</div>
+    <div class="input-group"><label class="input-label">血糖值 (mmol/L)</label><input class="input-field" id="glucoseVal" type="number" step="0.1" placeholder="5.2" value="5.2"></div>
+    <div class="input-group"><label class="input-label">测量时机</label>
+      <select class="input-field" style="appearance:none;-webkit-appearance:none">
+        <option>空腹（至少8小时未进食）</option>
+        <option>餐前30分钟</option><option>餐后1小时</option><option>餐后2小时</option><option>睡前</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveGlucose()">💾 保存记录</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-med" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💊 添加用药</div>
+    <div class="input-group"><label class="input-label">药品名称</label><input class="input-field" id="medName" placeholder="例如：维生素C"></div>
+    <div class="input-row">
+      <div class="input-group"><label class="input-label">剂量</label><input class="input-field" id="medDose" placeholder="500mg"></div>
+      <div class="input-group"><label class="input-label">数量</label><input class="input-field" id="medQty" placeholder="1片"></div>
+    </div>
+    <div class="input-group"><label class="input-label">服用时间</label>
+      <select class="input-field" style="appearance:none;-webkit-appearance:none">
+        <option>早餐前</option><option>早餐后</option><option>午餐前</option><option>午餐后</option><option>晚餐前</option><option>晚餐后</option><option>睡前</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="addMed()">✅ 添加药品</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-avatar" onclick="closeModal(event,this)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🖼️ 选择头像</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('😊',this)">😊</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('😎',this)">😎</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🧑',this)">🧑</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('👩',this)">👩</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🧓',this)">🧓</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🦸',this)">🦸</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🐼',this)">🐼</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🦊',this)">🦊</div>
+      <div style="font-size:48px;cursor:pointer;padding:8px;border-radius:12px" onclick="setAvatar('🐯',this)">🐯</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ===== ANDROID BRIDGE =====
+function vibrate() {
+  if (typeof AndroidBridge !== 'undefined' && AndroidBridge.vibrate) {
+    AndroidBridge.vibrate(30);
+  }
+}
+
+// ===== SPLASH =====
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    if (splash) splash.classList.add('hide');
+    setTimeout(() => splash && splash.remove(), 500);
+  }, 1800);
+});
+
+// ===== GREETING =====
+function updateGreeting() {
+  const h = new Date().getHours();
+  const el = document.getElementById('greeting');
+  if (el) {
+    if (h < 6) el.textContent = '夜深了 🌙';
+    else if (h < 12) el.textContent = '早上好 👋';
+    else if (h < 14) el.textContent = '中午好 ☀️';
+    else if (h < 18) el.textContent = '下午好 🌤️';
+    else el.textContent = '晚上好 🌙';
+  }
+}
+updateGreeting();
+
+// ===== NAVIGATION =====
+let currentPage = 'page-home';
+function switchPage(pageId, navEl) {
+  if (currentPage === pageId) return;
+  vibrate();
+  document.getElementById(currentPage).classList.add('hidden');
+  document.getElementById(pageId).classList.remove('hidden');
+  currentPage = pageId;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  navEl.classList.add('active');
+  if (pageId === 'page-data') setTimeout(initDataCharts, 100);
+  if (pageId === 'page-steps') setTimeout(initStepsChart2, 100);
+  if (pageId === 'page-meds') setTimeout(initMedChart, 100);
+}
+function goPage(pageId) {
+  document.getElementById(currentPage).classList.add('hidden');
+  document.getElementById(pageId).classList.remove('hidden');
+  currentPage = pageId;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const map = {'page-home':0,'page-data':1,'page-ai':2,'page-meds':3,'page-profile':4};
+  const idx = map[pageId];
+  if (idx !== undefined) document.querySelectorAll('.nav-item')[idx].classList.add('active');
+  if (pageId === 'page-data') setTimeout(initDataCharts, 100);
+  if (pageId === 'page-steps') setTimeout(initStepsChart2, 100);
+  if (pageId === 'page-meds') setTimeout(initMedChart, 100);
+}
+
+// ===== MODALS =====
+function showModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(e, overlay) {
+  if (e.target === overlay || e.target.classList.contains('modal-handle')) overlay.classList.remove('show');
+}
+
+// ===== TOAST =====
+function toast(msg, duration=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ===== INTERACTIONS =====
+function toggleMed(item) {
+  vibrate();
+  const tag = item.querySelector('.tag');
+  if (tag.textContent === '待服') {
+    tag.textContent = '已服'; tag.className = 'tag tag-green';
+    toast('✅ 已记录服药');
+  } else {
+    tag.textContent = '待服'; tag.className = 'tag tag-yellow';
+  }
+}
+
+function toggleDrop(drop) {
+  vibrate();
+  drop.classList.toggle('filled');
+  const total = document.querySelectorAll('.drop.filled').length * 200;
+  toast(`💧 已记录 ${total}ml 饮水`);
+}
+
+function addSymptom(el) {
+  vibrate();
+  el.classList.toggle('selected');
+  const selected = [...document.querySelectorAll('.symptom-tag.selected')].map(e => e.textContent.trim());
+  document.getElementById('symptomInput').value = selected.join('、');
+}
+
+function runAIDetect() {
+  const input = document.getElementById('symptomInput').value;
+  if (!input) { toast('⚠️ 请先描述症状'); return; }
+  const btn = event.target;
+  btn.textContent = '🔄 分析中...'; btn.disabled = true; vibrate();
+  setTimeout(() => {
+    btn.textContent = '🔍 开始AI分析'; btn.disabled = false;
+    const score = Math.floor(Math.random() * 20) + 70;
+    document.getElementById('aiScore').textContent = score;
+    const details = [
+      {icon:'❤️', label:'心血管', val: score > 80 ? '良好' : '一般', color: score > 80 ? '#10b981' : '#f59e0b'},
+      {icon:'🫁', label:'呼吸系统', val: '正常', color:'#10b981'},
+      {icon:'🧠', label:'神经系统', val: input.includes('头痛') || input.includes('头晕') ? '需关注' : '正常', color: input.includes('头痛') || input.includes('头晕') ? '#f59e0b' : '#10b981'},
+      {icon:'💪', label:'运动系统', val: input.includes('关节') ? '轻度异常' : '正常', color: input.includes('关节') ? '#ef4444' : '#10b981'},
+    ];
+    document.getElementById('aiDetails').innerHTML = details.map(d =>
+      `<div style="display:flex;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:10px">
+        <span style="font-size:13px">${d.icon} ${d.label}</span>
+        <span style="color:${d.color};font-weight:700;font-size:13px">${d.val}</span>
+      </div>`
+    ).join('');
+    document.getElementById('aiAdvice').innerHTML = `
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
+        <div style="font-size:24px">💡</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
+          根据您描述的症状（${input}），AI分析显示您的整体健康评分为 <strong style="color:${score>80?'#10b981':'#f59e0b'}">${score}分</strong>。
+          建议注意休息，保持充足睡眠。如症状持续或加重，请及时就医。
+        </div>
+      </div>
+      <div style="background:rgba(99,102,241,0.1);border-radius:10px;padding:12px;font-size:12px;color:var(--text-muted)">
+        ⚠️ AI分析仅供参考，不能代替专业医疗诊断
+      </div>
+    `;
+    document.getElementById('aiResult').style.display = 'block';
+    setTimeout(() => initAIHistoryChart(), 100);
+    toast(`🤖 分析完成，评分 ${score}分`);
+  }, 2000);
+}
+
+function saveProfile() {
+  vibrate();
+  const name = document.getElementById('nameInput').value;
+  if (name) {
+    document.getElementById('profileName').textContent = name;
+    toast('✅ 资料已保存');
+  }
+}
+
+function setAvatar(emoji, el) {
+  vibrate();
+  document.getElementById('profileAvatar').textContent = emoji;
+  document.getElementById('modal-avatar').classList.remove('show');
+  toast('✅ 头像已更新');
+}
+
+function saveBP() {
+  vibrate();
+  const h = document.getElementById('bpHigh').value, l = document.getElementById('bpLow').value;
+  document.getElementById('modal-bp-add').classList.remove('show');
+  toast(`✅ 血压已保存: ${h}/${l} mmHg`);
+}
+
+function saveGlucose() {
+  vibrate();
+  const val = document.getElementById('glucoseVal').value;
+  document.getElementById('modal-glucose-add').classList.remove('show');
+  toast(`✅ 血糖已保存: ${val} mmol/L`);
+}
+
+function addMed() {
+  vibrate();
+  const name = document.getElementById('medName').value || '新药品';
+  document.getElementById('modal-add-med').classList.remove('show');
+  toast(`✅ 药品 "${name}" 已添加`);
+}
+
+function openCamera() {
+  vibrate();
+  if (window.AndroidBridge && AndroidBridge.openCamera) {
+    AndroidBridge.openCamera();
+  } else {
+    // Fallback: open in new window
+    window.location.href = 'HealthCamera.html';
+  }
+}
+
+// ===== CHARTS =====
+function makeGradient(ctx, color1, color2) {
+  const grad = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+  grad.addColorStop(0, color1); grad.addColorStop(1, color2);
+  return grad;
+}
+
+function generateData(count, min, max) {
+  return Array.from({length:count}, () => Math.floor(Math.random()*(max-min)+min));
+}
+
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor:'rgba(17,24,39,0.95)',
+      titleColor:'#f1f5f9', bodyColor:'#94a3b8',
+      borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+      cornerRadius:10, padding:10
+    }
+  },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false }, ticks: { color: '#475569', font: { size: 10 } } },
+    y: { grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false }, ticks: { color: '#475569', font: { size: 10 } } }
+  },
+  elements: { point: { radius: 2, hoverRadius: 5 }, line: { tension: 0.4 } },
+  animation: { duration: 800, easing: 'easeInOutQuart' }
+};
+
+let chartsInit = {};
+
+function initDataCharts() {
+  if (chartsInit.data) return; chartsInit.data = true;
+  const labels30 = Array.from({length:30},(_,i)=>`${i+1}`);
+  const sc = document.getElementById('stepsChart'); if (!sc) return;
+  const sCtx = sc.getContext('2d');
+  new Chart(sCtx, { type:'line', data:{
+    labels: labels30,
+    datasets:[{ data: generateData(30,4000,12000), borderColor:'#6366f1', backgroundColor: makeGradient(sCtx,'rgba(99,102,241,0.4)','rgba(99,102,241,0)'), fill:true, borderWidth:2 }]
+  }, options:{...chartDefaults}});
+
+  const bc = document.getElementById('bpChart'); if (!bc) return;
+  const bCtx = bc.getContext('2d');
+  new Chart(bCtx, { type:'line', data:{
+    labels: Array.from({length:14},(_,i)=>`${i+1}`),
+    datasets:[
+      { data: generateData(14,110,128), borderColor:'#6366f1', fill:false, borderWidth:2 },
+      { data: generateData(14,68,82), borderColor:'#06b6d4', fill:false, borderWidth:2 }
+    ]
+  }, options:{...chartDefaults, plugins:{...chartDefaults.plugins, legend:{display:true, labels:{color:'#94a3b8',font:{size:11}}}}}});
+
+  const gc = document.getElementById('glucoseChart'); if (!gc) return;
+  const gCtx = gc.getContext('2d');
+  new Chart(gCtx, { type:'line', data:{
+    labels: Array.from({length:10},(_,i)=>`${i+1}d`),
+    datasets:[{ data:[5.2,5.4,5.1,5.3,5.5,5.2,5.0,5.3,5.4,5.2], borderColor:'#10b981', backgroundColor:makeGradient(gCtx,'rgba(16,185,129,0.4)','rgba(16,185,129,0)'), fill:true, borderWidth:2 }]
+  }, options:{...chartDefaults}});
+
+  const bmiC = document.getElementById('bmiChart'); if (!bmiC) return;
+  const bmiCtx = bmiC.getContext('2d');
+  new Chart(bmiCtx, { type:'line', data:{
+    labels: Array.from({length:10},(_,i)=>`${i+1}月`),
+    datasets:[{ data:[23.1,22.9,22.7,22.8,22.5,22.4,22.3,22.5,22.4,22.4], borderColor:'#8b5cf6', backgroundColor:makeGradient(bmiCtx,'rgba(139,92,246,0.4)','rgba(139,92,246,0)'), fill:true, borderWidth:2 }]
+  }, options:{...chartDefaults}});
+
+  const slC = document.getElementById('sleepChart'); if (!slC) return;
+  const slCtx = slC.getContext('2d');
+  new Chart(slCtx, { type:'bar', data:{
+    labels:['周一','周二','周三','周四','周五','周六','今日'],
+    datasets:[{ data:[7,8,6.5,7.5,8,9,7.5], backgroundColor:'rgba(139,92,246,0.6)', borderRadius:6, borderSkipped:false }]
+  }, options:{...chartDefaults}});
+}
+
+function initStepsChart2() {
+  if (chartsInit.steps2) return; chartsInit.steps2 = true;
+  const c = document.getElementById('stepsChart2'); if (!c) return;
+  const ctx = c.getContext('2d');
+  new Chart(ctx, { type:'line', data:{
+    labels: Array.from({length:30},(_,i)=>`${i+1}`),
+    datasets:[{ data: generateData(30,4000,12000), borderColor:'#6366f1', backgroundColor:makeGradient(ctx,'rgba(99,102,241,0.4)','rgba(99,102,241,0)'), fill:true, borderWidth:2 }]
+  }, options:{...chartDefaults}});
+}
+
+function initMedChart() {
+  if (chartsInit.med) return; chartsInit.med = true;
+  const c = document.getElementById('medChart'); if (!c) return;
+  const ctx = c.getContext('2d');
+  new Chart(ctx, { type:'bar', data:{
+    labels:['周一','周二','周三','周四','周五','周六','今日'],
+    datasets:[{ data:[3,2,3,3,3,3,1], backgroundColor:'rgba(99,102,241,0.7)', borderRadius:6, borderSkipped:false, maxBarThickness:30 }]
+  }, options:{...chartDefaults, scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, max:4, ticks:{...chartDefaults.scales.y.ticks, stepSize:1}}}}});
+}
+
+function initAIHistoryChart() {
+  if (chartsInit.aiHistory) return; chartsInit.aiHistory = true;
+  const c = document.getElementById('aiHistoryChart'); if (!c) return;
+  const ctx = c.getContext('2d');
+  new Chart(ctx, { type:'line', data:{
+    labels:['3周前','2周前','上周','本周'],
+    datasets:[{ data:[72,75,78,84], borderColor:'#6366f1', backgroundColor:makeGradient(ctx,'rgba(99,102,241,0.4)','rgba(99,102,241,0)'), fill:true, borderWidth:2 }]
+  }, options:{...chartDefaults}});
+}
+
+// ===== LOAD CHART.JS =====
+(function() {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  script.onload = () => { setTimeout(initDataCharts, 300); };
+  document.head.appendChild(script);
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(r => console.log('SW registered'))
+    .catch(e => console.log('SW failed', e));
+}
+</script>
 </body>
 </html>
