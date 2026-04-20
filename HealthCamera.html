@@ -118,28 +118,30 @@
   }
   @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
 
-  /* Mode tabs */
+  /* Mode tabs - 4 types */
   .mode-tabs {
     position:absolute; top:0; left:0; right:0;
-    display:flex; padding:12px 16px; gap:8px;
+    display:flex; padding:12px 16px; gap:6px;
     background:linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
     pointer-events:none;
   }
   .mode-tab {
-    flex:1; padding:8px 0; border-radius:12px;
+    flex:1; padding:10px 4px; border-radius:12px;
     background:rgba(255,255,255,0.1);
     border:1px solid rgba(255,255,255,0.1);
-    color:#fff; font-size:12px; font-weight:600;
+    color:#fff; font-size:11px; font-weight:600;
     text-align:center; cursor:pointer;
     transition:all .2s; pointer-events:all;
-    display:flex; flex-direction:column; align-items:center; gap:2px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
   }
-  .mode-tab .tab-icon { font-size:20px; }
-  .mode-tab .tab-lbl { font-size:10px; opacity:0.7; }
+  .mode-tab .tab-icon { font-size:22px; }
+  .mode-tab .tab-lbl { font-size:10px; opacity:0.8; }
   .mode-tab.active {
     background:rgba(99,102,241,0.6);
     border-color:rgba(99,102,241,0.8);
+    box-shadow:0 4px 12px rgba(99,102,241,0.3);
   }
+  .mode-tab.active .tab-lbl { opacity:1; font-weight:700; }
 
   /* Bottom controls */
   .cam-controls {
@@ -335,6 +337,67 @@
   .disclaimer-icon { font-size:16px; flex-shrink:0; margin-top:2px; }
   .disclaimer-text { font-size:11px; color:var(--text-muted); line-height:1.6; }
 
+  /* Parameter Adjustment Panel */
+  .param-panel {
+    background:var(--bg-card); border-radius:16px; padding:16px; margin-bottom:16px;
+    border:1px solid var(--border);
+  }
+  .param-panel-title {
+    font-size:13px; color:var(--text-primary); margin-bottom:16px;
+    font-weight:600; display:flex; align-items:center; gap:8px;
+  }
+  .param-item {
+    margin-bottom:16px;
+  }
+  .param-item:last-child { margin-bottom:0; }
+  .param-header {
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
+  }
+  .param-label {
+    font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:6px;
+  }
+  .param-value {
+    font-size:13px; font-weight:700; color:#fff; min-width:60px; text-align:right;
+  }
+  .param-slider {
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:8px; border-radius:4px;
+    background:rgba(255,255,255,0.1); outline:none;
+  }
+  .param-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:20px; height:20px; border-radius:50%;
+    background:linear-gradient(135deg,var(--accent1),var(--accent2));
+    cursor:pointer; box-shadow:0 2px 8px rgba(99,102,241,0.4);
+  }
+  .param-slider::-moz-range-thumb {
+    width:20px; height:20px; border-radius:50%;
+    background:linear-gradient(135deg,var(--accent1),var(--accent2));
+    cursor:pointer; border:none; box-shadow:0 2px 8px rgba(99,102,241,0.4);
+  }
+  .param-slider.low::-webkit-slider-thumb { background:linear-gradient(135deg,#10b981,#06b6d4); }
+  .param-slider.med::-webkit-slider-thumb { background:linear-gradient(135deg,#f59e0b,#ef4444); }
+  .param-slider.high::-webkit-slider-thumb { background:linear-gradient(135deg,#ef4444,#dc2626); }
+  .param-toggle-row {
+    display:flex; gap:8px; margin-bottom:12px;
+  }
+  .param-toggle-btn {
+    flex:1; padding:10px; border-radius:10px;
+    background:rgba(255,255,255,0.05); border:1px solid var(--border);
+    color:#fff; font-size:12px; cursor:pointer; text-align:center;
+    transition:all .2s;
+  }
+  .param-toggle-btn.active {
+    background:rgba(99,102,241,0.3); border-color:var(--accent1);
+    font-weight:600;
+  }
+  .param-apply-btn {
+    width:100%; padding:12px; margin-top:16px;
+    background:linear-gradient(135deg,var(--accent1),var(--accent2));
+    border:none; border-radius:12px; color:#fff; font-size:14px; font-weight:700;
+    cursor:pointer;
+  }
+
   /* Loading */
   .loading-screen {
     position:fixed; inset:0; background:rgba(10,14,26,0.95);
@@ -379,23 +442,23 @@
     <video id="camera-video" autoplay playsinline muted></video>
     <canvas id="camera-canvas"></canvas>
 
-    <!-- Mode Tabs -->
+    <!-- Mode Tabs - 4 Types -->
     <div class="mode-tabs">
       <div class="mode-tab active" id="tab-face" onclick="setMode('face')">
         <span class="tab-icon">😊</span>
-        <span class="tab-lbl">面色</span>
+        <span class="tab-lbl">脸色</span>
       </div>
       <div class="mode-tab" id="tab-tongue" onclick="setMode('tongue')">
         <span class="tab-icon">👅</span>
-        <span class="tab-lbl">舌诊</span>
+        <span class="tab-lbl">舌尖</span>
       </div>
-      <div class="mode-tab" id="tab-heart" onclick="setMode('heart')">
-        <span class="tab-icon">❤️</span>
-        <span class="tab-lbl">心率</span>
+      <div class="mode-tab" id="tab-urine" onclick="setMode('urine')">
+        <span class="tab-icon">💧</span>
+        <span class="tab-lbl">尿色</span>
       </div>
-      <div class="mode-tab" id="tab-skin" onclick="setMode('skin')">
-        <span class="tab-icon">🔍</span>
-        <span class="tab-lbl">皮肤</span>
+      <div class="mode-tab" id="tab-stool" onclick="setMode('stool')">
+        <span class="tab-icon">💩</span>
+        <span class="tab-lbl">屎色</span>
       </div>
     </div>
 
@@ -467,46 +530,82 @@
 // ===================== CONSTANTS =====================
 const MODES = {
   face: {
-    title: '面色分析',
+    title: '脸色检测',
     icon: '😊',
-    hint: '😊 面色分析 · 请保持光线充足',
+    hint: '😊 脸色检测 · 请保持光线充足',
     guideIcon: '😊',
     guideText: '请将面部对准框内',
     guideW: 240, guideH: 300,
+    guideShape: 'circle',
     color: '#6366f1',
-    badge: { text: '面色', emoji: '😊' }
+    badge: { text: '脸色', emoji: '😊' }
   },
   tongue: {
-    title: '舌诊分析',
+    title: '舌尖检测',
     icon: '👅',
-    hint: '👅 舌诊分析 · 请伸出舌头',
+    hint: '👅 舌尖检测 · 请伸出舌头',
     guideIcon: '👅',
-    guideText: '请将舌头对准框内',
-    guideW: 240, guideH: 240,
+    guideText: '请将舌尖对准框内',
+    guideW: 200, guideH: 200,
+    guideShape: 'circle',
     color: '#ef4444',
-    badge: { text: '舌诊', emoji: '👅' }
+    badge: { text: '舌尖', emoji: '👅' }
   },
-  heart: {
-    title: '心率检测',
-    icon: '❤️',
-    hint: '❤️ 心率检测 · 请保持静止30秒',
-    guideIcon: '❤️',
-    guideText: '请将面部对准框内，保持静止',
-    guideW: 200, guideH: 250,
-    color: '#ef4444',
-    badge: { text: '心率', emoji: '❤️' }
+  urine: {
+    title: '尿色检测',
+    icon: '💧',
+    hint: '💧 尿色检测 · 请准备尿液样本',
+    guideIcon: '💧',
+    guideText: '请将尿液样本对准框内',
+    guideW: 180, guideH: 180,
+    guideShape: 'square',
+    color: '#f59e0b',
+    badge: { text: '尿色', emoji: '💧' }
   },
-  skin: {
-    title: '皮肤检测',
-    icon: '🔍',
-    hint: '🔍 皮肤检测 · 请靠近镜头',
-    guideIcon: '🔍',
-    guideText: '请将面部靠近镜头',
-    guideW: 240, guideH: 300,
-    color: '#10b981',
-    badge: { text: '皮肤', emoji: '🔍' }
+  stool: {
+    title: '屎色检测',
+    icon: '💩',
+    hint: '💩 屎色检测 · 请准备粪便样本',
+    guideIcon: '💩',
+    guideText: '请将粪便样本对准框内',
+    guideW: 180, guideH: 180,
+    guideShape: 'square',
+    color: '#8b4513',
+    badge: { text: '屎色', emoji: '💩' }
   }
 };
+
+// Default parameters for each mode
+const DEFAULT_PARAMS = {
+  face: {
+    redness: 50,      // 脸色红润度 0-100
+    yellowness: 30,   // 黄度 0-100
+    brightness: 60,   // 亮度 0-100
+    saturation: 50,    // 饱和度 0-100
+    fatigue: 30        // 疲劳度 0-100
+  },
+  tongue: {
+    tongueColor: 50,  // 舌色深浅 0-100
+    coating: 40,      // 舌苔厚度 0-100
+    moisture: 60,     // 湿润度 0-100
+    heatLevel: 30     // 热证程度 0-100
+  },
+  urine: {
+    urineColor: 20,   // 尿色深浅 0-100
+    clarity: 80,      // 清澈度 0-100
+    foam: 20,         // 泡沫程度 0-100
+    smell: 40         // 气味程度 0-100
+  },
+  stool: {
+    stoolColor: 50,   // 粪便颜色深浅 0-100
+    softness: 50,     // 软硬程度 0-100
+    shape: 60,        // 形状完整性 0-100
+    residue: 30        // 残留程度 0-100
+  }
+};
+
+// Current adjustable parameters
+let currentParams = { ...DEFAULT_PARAMS };
 
 let currentMode = 'face';
 let currentFacing = 'user'; // 'user' = front, 'environment' = back
@@ -579,10 +678,16 @@ function setMode(mode) {
   document.getElementById('guide-icon').textContent = m.guideIcon;
   document.getElementById('guide-text').textContent = m.guideText;
 
-  // Adjust guide circle
+  // Adjust guide shape
   const gc = document.getElementById('guide-circle');
   gc.style.width = m.guideW + 'px';
   gc.style.height = m.guideH + 'px';
+  if (m.guideShape === 'square') {
+    gc.style.borderRadius = '16px';
+    gc.style.borderRadius = '16px';
+  } else {
+    gc.style.borderRadius = '50% 50% 50% 50% / 60% 60% 40% 40%';
+  }
 
   // Show/hide flash for back camera only
   const flashBtn = document.getElementById('flash-btn');
@@ -592,11 +697,7 @@ function setMode(mode) {
 // ===================== CAPTURE FLOW =====================
 function startCapture() {
   vibrate();
-  if (currentMode === 'heart') {
-    startHeartRateCapture();
-  } else {
-    captureImage();
-  }
+  captureImage();
 }
 
 async function captureImage() {
@@ -1104,33 +1205,31 @@ function mergeAnalysisResults(localResult, cloudResult) {
   const cloudMetrics = {
     face: [
       { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#6366f1' },
-      { icon: '💧', label: '水分指数', value: (details.hydration || 0) + '%', detail: '基于皮肤亮度分析', color: '#06b6d4' },
-      { icon: '💪', label: '皮肤弹性', value: (details.elasticity || 0) + '%', detail: '纹理分析评估', color: '#10b981' },
-      { icon: '🧪', label: '黑色素', value: (details.melanin || 0) + '%', detail: '色斑风险评估', color: '#8b5cf6' },
-      { icon: '✨', label: '光滑度', value: (details.smoothness || 0) + '%', detail: '肤质细腻度', color: '#f59e0b' },
-      { icon: '🔴', label: '红润度', value: (details.redness || 0) + '%', detail: '血色充盈度', color: '#ef4444' },
+      { icon: '😊', label: '脸色红润度', value: (details.redness || currentParams.face.redness) + '%', detail: '血色充盈度', color: '#ef4444' },
+      { icon: '🌕', label: '脸色黄度', value: (details.yellowness || currentParams.face.yellowness) + '%', detail: '面色偏黄程度', color: '#f59e0b' },
+      { icon: '💡', label: '亮度', value: (details.brightness || currentParams.face.brightness) + '%', detail: '皮肤亮度', color: '#06b6d4' },
+      { icon: '😴', label: '疲劳度', value: (details.fatigue || currentParams.face.fatigue) + '%', detail: '疲劳程度', color: '#8b5cf6' },
     ],
     tongue: [
       { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#ef4444' },
-      { icon: '👅', label: '舌质评估', value: details.tongueBody || '淡红舌', detail: '中医舌质诊断', color: '#f59e0b' },
-      { icon: '🌫️', label: '舌苔评估', value: details.coating || '薄白苔', detail: '舌苔状态分析', color: '#06b6d4' },
-      { icon: '💧', label: '湿润度', value: (details.moisture || 0) + '%', detail: '水液代谢评估', color: '#6366f1' },
-      { icon: '🔥', label: '热证指标', value: details.heatLevel || '正常', detail: '内热程度分析', color: '#ef4444' },
-      { icon: '🩸', label: '血瘀指标', value: details.bloodStasis || '无', detail: '血液循环评估', color: '#8b5cf6' },
+      { icon: '👅', label: '舌色深浅', value: (details.tongueColor || currentParams.tongue.tongueColor) + '%', detail: '中医舌质诊断', color: '#f59e0b' },
+      { icon: '🌫️', label: '舌苔厚度', value: (details.coating || currentParams.tongue.coating) + '%', detail: '舌苔状态分析', color: '#06b6d4' },
+      { icon: '💧', label: '湿润度', value: (details.moisture || currentParams.tongue.moisture) + '%', detail: '水液代谢评估', color: '#6366f1' },
+      { icon: '🔥', label: '热证程度', value: (details.heatLevel || currentParams.tongue.heatLevel) + '%', detail: '内热程度分析', color: '#ef4444' },
     ],
-    skin: [
-      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#10b981' },
-      { icon: '💧', label: '水分指数', value: (details.hydration || 0) + '%', detail: '皮肤含水量', color: '#06b6d4' },
-      { icon: '🎨', label: '均匀度', value: (details.uniformity || 0) + '%', detail: '肤色均匀程度', color: '#6366f1' },
-      { icon: '✨', label: '细腻度', value: (details.smoothness || 0) + '%', detail: '肤质平滑度', color: '#f59e0b' },
-      { icon: '🔬', label: '毛孔评分', value: (details.pores || 0) + '%', detail: '毛孔细致程度', color: '#8b5cf6' },
-      { icon: '🫒', label: '油脂分泌', value: (details.oiliness || 0) + '%', detail: '油水平衡', color: '#10b981' },
+    urine: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#f59e0b' },
+      { icon: '💧', label: '尿色深浅', value: (details.urineColor || currentParams.urine.urineColor) + '%', detail: '尿液颜色分析', color: '#06b6d4' },
+      { icon: '✨', label: '清澈度', value: (details.clarity || currentParams.urine.clarity) + '%', detail: '尿液透明度', color: '#10b981' },
+      { icon: '🫧', label: '泡沫程度', value: (details.foam || currentParams.urine.foam) + '%', detail: '泡沫含量', color: '#8b5cf6' },
+      { icon: '👃', label: '气味程度', value: (details.smell || currentParams.urine.smell) + '%', detail: '气味异常程度', color: '#f59e0b' },
     ],
-    heart: [
-      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#ef4444' },
-      { icon: '📊', label: '压力指数', value: (details.stressLevel || 0), detail: '心理压力评估', color: '#8b5cf6' },
-      { icon: '💓', label: '心率变异', value: (details.hrvIndex || 0), detail: '心血管健康', color: '#6366f1' },
-      { icon: '🩸', label: '血氧饱和', value: (details.bloodOxygen || 0) + '%', detail: '血氧水平', color: '#06b6d4' },
+    stool: [
+      { icon: '🤖', label: 'AI综合评分', value: cloudResult.aiScore + '分', detail: `置信度 ${Math.round(cloudResult.confidence * 100)}%`, color: '#8b4513' },
+      { icon: '💩', label: '颜色深浅', value: (details.stoolColor || currentParams.stool.stoolColor) + '%', detail: '粪便颜色分析', color: '#a0522d' },
+      { icon: '💪', label: '软硬程度', value: (details.softness || currentParams.stool.softness) + '%', detail: '粪便软硬状态', color: '#f59e0b' },
+      { icon: '🔲', label: '形状完整', value: (details.shape || currentParams.stool.shape) + '%', detail: '形状完整性', color: '#10b981' },
+      { icon: '⚠️', label: '残留程度', value: (details.residue || currentParams.stool.residue) + '%', detail: '残留物程度', color: '#ef4444' },
     ]
   };
 
@@ -1638,9 +1737,137 @@ function analyzeImage(mode, canvas) {
   switch (mode) {
     case 'face': return analyzeFaceColor(canvas);
     case 'tongue': return analyzeTongue(canvas);
-    case 'skin': return analyzeSkin(canvas);
+    case 'urine': return analyzeUrine(canvas);
+    case 'stool': return analyzeStool(canvas);
     default: return analyzeFaceColor(canvas);
   }
+}
+
+// ===================== URINE ANALYSIS =====================
+function analyzeUrine(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Sample center region
+  const center = getAverageColor(imageData, Math.floor(w*0.3), Math.floor(h*0.3), Math.floor(w*0.4), Math.floor(h*0.4));
+  const hsv = rgbToHsv(center.r, center.g, center.b);
+
+  // Urine color classification
+  let urineType, urineLabel, urineDesc, urineColor;
+  const hue = hsv.h;
+  const light = hsv.v;
+
+  if (light > 85 && hsv.s < 10) {
+    urineType = 'clear'; urineLabel = '清澈如水'; urineDesc = '尿液非常清澈，可能饮水过多';
+    urineColor = '#f0f8ff';
+  } else if (light > 70 && hsv.s < 20) {
+    urineType = 'normal'; urineLabel = '淡黄色'; urineDesc = '正常健康的尿液颜色';
+    urineColor = '#ffffcc';
+  } else if (light > 50 && hue < 50) {
+    urineType = 'yellow'; urineLabel = '深黄色'; urineDesc = '轻微浓缩，建议多喝水';
+    urineColor = '#ffd700';
+  } else if (hue < 50 && light > 30) {
+    urineType = 'amber'; urineLabel = '琥珀色'; urineDesc = '尿液浓缩，需补充水分';
+    urineColor = '#ffbf00';
+  } else if (hue > 30 && hue < 80) {
+    urineType = 'orange'; urineLabel = '橙色'; urineDesc = '可能轻度脱水或肝脏问题';
+    urineColor = '#ff8c00';
+  } else if (hue > 300 || hue < 30) {
+    urineType = 'red'; urineLabel = '偏红'; urineDesc = '可能有血尿，需检查';
+    urineColor = '#dc143c';
+  } else {
+    urineType = 'brown'; urineLabel = '棕色'; urineDesc = '可能有严重问题，建议就医';
+    urineColor = '#8b4513';
+  }
+
+  // Use manual parameters if provided
+  const params = currentParams.urine || DEFAULT_PARAMS.urine;
+  const score = Math.round(100 - (100 - light) * 0.5 - (100 - params.clarity) * 0.3 - params.foam * 0.2);
+
+  return {
+    mode: 'urine',
+    title: '尿色检测报告',
+    icon: '💧',
+    score: Math.min(95, Math.max(40, score)),
+    color: '#f59e0b',
+    metrics: [
+      { icon: '🎨', label: '尿液颜色', value: urineLabel, detail: urineDesc, color: urineColor },
+      { icon: '✨', label: '清澈度', value: params.clarity + '%', detail: '基于透明度分析', color: '#06b6d4' },
+      { icon: '🫧', label: '泡沫程度', value: params.foam + '%', detail: '泡沫越多蛋白质可能越高', color: '#8b5cf6' },
+      { icon: '👃', label: '气味程度', value: params.smell + '%', detail: '气味异常可能提示问题', color: '#f59e0b' },
+    ],
+    advice: [
+      { text: `尿色检测结果：${urineLabel}，${urineDesc}。` },
+      { text: light < 60 ? '尿液颜色偏深，建议每天饮水2000ml以上，保持充足水分摄入。' : '尿液颜色正常，继续保持良好的饮水习惯。' },
+      { text: params.foam > 50 ? '泡沫较多，可能提示蛋白质摄入过高或肾脏负担，建议检查。' : '泡沫状态正常，继续保持。' },
+      { text: '建议：每天规律饮水，避免憋尿，定期进行尿常规检查。' },
+    ]
+  };
+}
+
+// ===================== STOOL ANALYSIS =====================
+function analyzeStool(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // Sample center region
+  const center = getAverageColor(imageData, Math.floor(w*0.3), Math.floor(h*0.3), Math.floor(w*0.4), Math.floor(h*0.4));
+  const hsv = rgbToHsv(center.r, center.g, center.b);
+
+  // Stool color classification
+  let stoolType, stoolLabel, stoolDesc, stoolColor;
+  const hue = hsv.h;
+  const light = hsv.v;
+  const sat = hsv.s;
+
+  if (light > 70 && sat < 15) {
+    stoolType = 'pale'; stoolLabel = '灰白色'; stoolDesc = '可能胆管阻塞或肝脏问题';
+    stoolColor = '#d3d3d3';
+  } else if (hue > 30 && hue < 50 && light > 50) {
+    stoolType = 'normal'; stoolLabel = '黄褐色'; stoolDesc = '正常健康的粪便颜色';
+    stoolColor = '#c19a6b';
+  } else if (hue < 30 && light > 30) {
+    stoolType = 'dark'; stoolLabel = '深棕色'; stoolDesc = '可能铁补充剂或肉类摄入较多';
+    stoolColor = '#8b4513';
+  } else if (hue > 300 || hue < 20 && sat > 40) {
+    stoolType = 'red'; stoolLabel = '带红色'; stoolDesc = '可能有消化道出血，需检查';
+    stoolColor = '#dc143c';
+  } else if (hue > 80 && hue < 150) {
+    stoolType = 'green'; stoolLabel = '绿色'; stoolDesc = '可能消化过快或摄入绿色食物';
+    stoolColor = '#228b22';
+  } else if (light < 30) {
+    stoolType = 'black'; stoolLabel = '黑色'; stoolDesc = '可能上消化道出血，紧急就医';
+    stoolColor = '#2f2f2f';
+  } else {
+    stoolType = 'brown'; stoolLabel = '棕色'; stoolDesc = '正常范围';
+    stoolColor = '#a0522d';
+  }
+
+  // Use manual parameters
+  const params = currentParams.stool || DEFAULT_PARAMS.stool;
+  const score = Math.round(100 - Math.abs(50 - params.softness) * 0.5 - params.residue * 0.3);
+
+  return {
+    mode: 'stool',
+    title: '屎色检测报告',
+    icon: '💩',
+    score: Math.min(95, Math.max(40, score)),
+    color: '#8b4513',
+    metrics: [
+      { icon: '🎨', label: '粪便颜色', value: stoolLabel, detail: stoolDesc, color: stoolColor },
+      { icon: '💪', label: '软硬程度', value: params.softness + '%', detail: '50%为理想状态', color: '#f59e0b' },
+      { icon: '🔲', label: '形状完整', value: params.shape + '%', detail: '形状越完整越健康', color: '#10b981' },
+      { icon: '⚠️', label: '残留程度', value: params.residue + '%', detail: '残留越少越好', color: '#ef4444' },
+    ],
+    advice: [
+      { text: `屎色检测结果：${stoolLabel}，${stoolDesc}。` },
+      { text: params.softness > 80 ? '粪便偏软，可能有轻微腹泻，注意饮食调理。' : params.softness < 30 ? '粪便偏硬，可能有便秘问题，建议增加膳食纤维摄入。' : '粪便软硬程度正常。' },
+      { text: stoolType === 'red' || stoolType === 'black' ? '颜色异常，建议尽快就医检查！' : '颜色状态基本正常。' },
+      { text: '建议：保持均衡饮食，适量摄入膳食纤维，养成良好排便习惯。' },
+    ]
+  };
 }
 
 // ===================== LOADING =====================
@@ -1661,12 +1888,19 @@ function showLoading(mode, callback) {
   const modeIcons = {
     face: '😊',
     tongue: '👅',
-    skin: '🔍',
-    heart: '❤️'
+    urine: '💧',
+    stool: '💩'
+  };
+  
+  const modeNames = {
+    face: '脸色',
+    tongue: '舌尖',
+    urine: '尿色',
+    stool: '屎色'
   };
   
   iconEl.textContent = modeIcons[mode] || '🤖';
-  titleEl.textContent = mode === 'heart' ? '❤️ 心率检测中...' : '🔬 AI 健康分析中...';
+  titleEl.textContent = `🔬 ${modeNames[mode] || '健康'}分析中...`;
   descEl.textContent = '🌐 联网深度分析，请稍候...';
   bar.style.width = '0%';
   stepsEl.textContent = '正在连接云端服务器...';
@@ -1720,15 +1954,98 @@ function hideLoading() {
 // Store captured image data URL for display
 let capturedImageDataUrl = '';
 
+// Generate parameter adjustment HTML based on mode
+function getParamAdjustmentHTML(mode) {
+  const params = currentParams[mode] || DEFAULT_PARAMS[mode];
+  const paramConfigs = {
+    face: [
+      { key: 'redness', label: '脸色红润度', icon: '😊', min: 0, max: 100, step: 5 },
+      { key: 'yellowness', label: '黄度', icon: '🌕', min: 0, max: 100, step: 5 },
+      { key: 'brightness', label: '亮度', icon: '💡', min: 0, max: 100, step: 5 },
+      { key: 'fatigue', label: '疲劳度', icon: '😴', min: 0, max: 100, step: 5 },
+    ],
+    tongue: [
+      { key: 'tongueColor', label: '舌色深浅', icon: '👅', min: 0, max: 100, step: 5 },
+      { key: 'coating', label: '舌苔厚度', icon: '🌫️', min: 0, max: 100, step: 5 },
+      { key: 'moisture', label: '湿润度', icon: '💧', min: 0, max: 100, step: 5 },
+      { key: 'heatLevel', label: '热证程度', icon: '🔥', min: 0, max: 100, step: 5 },
+    ],
+    urine: [
+      { key: 'urineColor', label: '尿色深浅', icon: '💧', min: 0, max: 100, step: 5 },
+      { key: 'clarity', label: '清澈度', icon: '✨', min: 0, max: 100, step: 5 },
+      { key: 'foam', label: '泡沫程度', icon: '🫧', min: 0, max: 100, step: 5 },
+      { key: 'smell', label: '气味程度', icon: '👃', min: 0, max: 100, step: 5 },
+    ],
+    stool: [
+      { key: 'stoolColor', label: '颜色深浅', icon: '💩', min: 0, max: 100, step: 5 },
+      { key: 'softness', label: '软硬程度', icon: '💪', min: 0, max: 100, step: 5 },
+      { key: 'shape', label: '形状完整', icon: '🔲', min: 0, max: 100, step: 5 },
+      { key: 'residue', label: '残留程度', icon: '⚠️', min: 0, max: 100, step: 5 },
+    ]
+  };
+
+  const config = paramConfigs[mode] || paramConfigs.face;
+  
+  const slidersHTML = config.map(p => {
+    const value = params[p.key] || 50;
+    const sliderClass = value < 33 ? 'low' : value < 66 ? 'med' : 'high';
+    return `
+      <div class="param-item">
+        <div class="param-header">
+          <span class="param-label"><span>${p.icon}</span>${p.label}</span>
+          <span class="param-value" id="param-val-${p.key}">${value}</span>
+        </div>
+        <input type="range" class="param-slider ${sliderClass}" 
+          id="param-${p.key}"
+          min="${p.min}" max="${p.max}" step="${p.step}" value="${value}"
+          oninput="updateParam('${mode}', '${p.key}', this.value)"
+          onchange="updateParam('${mode}', '${p.key}', this.value)">
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <!-- Parameter Adjustment Panel -->
+    <div class="param-panel">
+      <div class="param-panel-title">
+        <span>⚙️</span>
+        <span>手动调节参数</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">拖动滑块调整</span>
+      </div>
+      ${slidersHTML}
+      <button class="param-apply-btn" onclick="reanalyzeWithParams('${mode}')">
+        🔄 应用参数并重新分析
+      </button>
+    </div>
+  `;
+}
+
+function updateParam(mode, key, value) {
+  document.getElementById('param-val-' + key).textContent = value;
+  currentParams[mode][key] = parseInt(value);
+  
+  // Update slider class for color
+  const slider = document.getElementById('param-' + key);
+  slider.className = 'param-slider ' + (value < 33 ? 'low' : value < 66 ? 'med' : 'high');
+}
+
+function reanalyzeWithParams(mode) {
+  closeResult();
+  setTimeout(() => {
+    setMode(mode);
+    setTimeout(() => startCapture(), 300);
+  }, 300);
+}
+
 function showResult(result) {
   const body = document.getElementById('result-body');
   
   // Update header title based on mode
   const titleMap = {
-    face: '面色健康分析',
-    tongue: '舌诊健康分析',
-    skin: '皮肤健康分析',
-    heart: '心率健康分析'
+    face: '脸色健康分析',
+    tongue: '舌尖健康分析',
+    urine: '尿色健康分析',
+    stool: '屎色健康分析'
   };
   const headerTitle = titleMap[result.mode] || '健康分析报告';
   document.querySelector('.result-header .title').textContent = headerTitle;
@@ -1830,6 +2147,9 @@ function showResult(result) {
       ${metricsHtml}
     </div>
 
+    <!-- Parameter Adjustment Panel -->
+    ${getParamAdjustmentHTML(result.mode)}
+
     <!-- AI Health Advice -->
     <div class="ai-advice-compact">
       <div class="ai-advice-compact-title">
@@ -1892,6 +2212,32 @@ function showResult(result) {
   // Save to history
   saveToHistory(result);
 }
+      <span>返回摄像头</span>
+    </button>
+  `;
+
+  // Show result screen
+  document.getElementById('result-screen').classList.add('show');
+
+  // Animate score
+  setTimeout(() => {
+    const ring = document.getElementById('result-ring-fg');
+    const scoreNum = document.getElementById('result-score-num');
+    if (ring && scoreNum) {
+      const targetOffset = 377 - (377 * result.score / 100);
+      ring.style.strokeDashoffset = targetOffset;
+      let current = 0;
+      const timer = setInterval(() => {
+        current += 1;
+        scoreNum.textContent = Math.min(result.score, Math.round(result.score * current / 50));
+        if (current >= 50) clearInterval(timer);
+      }, 20);
+    }
+  }, 200);
+
+  // Save to history
+  saveToHistory(result);
+}
 
 function closeResult() {
   document.getElementById('result-screen').classList.remove('show');
@@ -1901,6 +2247,11 @@ function reanalyze() {
   closeResult();
   setTimeout(() => startCapture(), 400);
 }
+
+// Legacy heart rate functions - kept for compatibility
+function startHeartRateCapture() { startCapture(); }
+function stopRppg() {}
+function showHeartRateResult(bpm) {}
 
 function shareResult() {
   toast('📤 报告已复制到剪贴板');
