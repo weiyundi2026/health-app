@@ -2021,12 +2021,25 @@ function getParamAdjustmentHTML(mode) {
 }
 
 function updateParam(mode, key, value) {
-  document.getElementById('param-val-' + key).textContent = value;
+  // Ensure currentParams[mode] exists
+  if (!currentParams[mode]) {
+    currentParams[mode] = { ...DEFAULT_PARAMS[mode] };
+  }
+  
+  // Update display value
+  const valEl = document.getElementById('param-val-' + key);
+  if (valEl) {
+    valEl.textContent = value;
+  }
+  
+  // Update current params
   currentParams[mode][key] = parseInt(value);
   
   // Update slider class for color
   const slider = document.getElementById('param-' + key);
-  slider.className = 'param-slider ' + (value < 33 ? 'low' : value < 66 ? 'med' : 'high');
+  if (slider) {
+    slider.className = 'param-slider ' + (value < 33 ? 'low' : value < 66 ? 'med' : 'high');
+  }
 }
 
 function reanalyzeWithParams(mode) {
