@@ -1,0 +1,13 @@
+{
+	"appId": "com.healthpro.app",
+	"appName": "HealthPro",
+	"webDir": "www",
+	"server": {
+		"androidScheme": "https"
+	},
+	"plugins": {
+		"Camera": {
+			"presentToast": false
+		}
+	}
+}
